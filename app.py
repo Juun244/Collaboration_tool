@@ -36,6 +36,12 @@ def load_user(user_id):
     user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
     return User(user_data) if user_data else None
 
+@app.route("/")
+def home():
+    if current_user.is_authenticated:
+        return redirect(url_for("dashbpard"))
+    else:
+        return redirect(url_for("login"))
 # 회원가입
 @app.route("/register", methods=["GET", "POST"])
 def register():
