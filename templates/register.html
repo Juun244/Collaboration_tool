@@ -1,16 +1,52 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <title>회원가입</title>
+  <meta charset="UTF-8">
+  <title>회원가입</title>
 </head>
 <body>
-    <h2>회원가입</h2>
-    <form method="POST">
-        <input type="text" name="username" placeholder="사용자명" required>
-        <input type="password" name="password" placeholder="비밀번호" required>
-        <button type="submit">가입하기</button>
-    </form>
-    <a href="{{ url_for('login') }}">로그인</a>
+  <h2>회원가입</h2>
+
+  <!-- 이메일 입력 후 인증코드 요청 -->
+  <form method="POST" action="/send-code">
+    <label>이메일 주소:</label>
+    <input type="email" name="email" placeholder="이메일 입력" required>
+    <button type="submit">인증코드 보내기</button>
+  </form>
+
+  <br>
+
+  <!-- 인증코드 입력 -->
+  <form method="POST" action="/verify-code">
+    <label>인증코드:</label>
+    <input type="text" name="code" placeholder="인증코드 입력" required>
+    <button type="submit">인증 확인</button>
+  </form>
+
+  <br>
+
+  <!-- 실제 회원가입 폼 -->
+  <form method="POST" action="/register">
+    <label>사용자명:</label>
+    <input type="text" name="username" placeholder="사용자명" required>
+    <label>비밀번호:</label>
+    <input type="password" name="password" placeholder="비밀번호" required>
+    <button type="submit">가입하기</button>
+  </form>
+
+  <br>
+
+  <a href="{{ url_for('login') }}">로그인</a>
+
+  <!-- 메시지 출력 -->
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul>
+      {% for message in messages %}
+        <li>{{ message }}</li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
 </body>
 </html>
