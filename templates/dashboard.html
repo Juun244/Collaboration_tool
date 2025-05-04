@@ -153,7 +153,10 @@
   {{ project.name }}
 </h5>
 
-            <p class="card-text">{{ project.description }}</p>
+           <p class="card-text" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
+  {{ project.description }}
+</p>
+
             <div class="d-flex align-items-center mb-2">
               <div class="member-avatar"><i class="bi bi-people"></i></div>
               <span class="ms-2">{{ project.members|length }} members</span>
