@@ -149,7 +149,10 @@
       <div class="project-card-wrapper" data-project-id="{{ project._id }}">
         <div class="card project-card h-100 position-relative">
           <div class="card-body pb-5">
-            <h5 class="card-title">{{ project.name }}</h5>
+           <h5 class="card-title" style="word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">
+  {{ project.name }}
+</h5>
+
             <p class="card-text">{{ project.description }}</p>
             <div class="d-flex align-items-center mb-2">
               <div class="member-avatar"><i class="bi bi-people"></i></div>
