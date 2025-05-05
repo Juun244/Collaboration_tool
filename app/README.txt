@@ -3,7 +3,7 @@
 python -m venv venv
 
 2. 가상환경 활성화
-venv\Scripts\activate
+app\venv\Scripts\activate
 활성화시 터미널 앞에 (venv)가 표시됨
 비활성화 하려면 터미널에 deactivate 입력
 
@@ -20,6 +20,9 @@ pip install flask-pymongo
 pip install -r requirements.txt
 패키지목록 추출
 pip freeze > requirements.txt
+
+4. 서버 실행
+python -m app
 
 개발 목록
 2025-03-15
@@ -51,8 +54,16 @@ pip freeze > requirements.txt
 -프로젝트 여러개가 생성될 시 가로로 배치되고 마우스 휠로 스크롤 되게 변겅
 -프로젝트 드래그모드에서 왼쪽이나 오른쪽 끝으로 가면 해당방향으로 스크롤 되게 설정
 
+2025-05-01
+-카드 생성 및 삭제 기능 추가
+
 2025-05-02
 -프로젝트 설명이 길 경우 ...으로 표시
 -프로젝트 main container를 양쪽 끝까지 확장(프로젝트 리스트가 대시보드 왼쪽 끝부터 시작)
 -프로젝트 내 카드 표시
--프로젝트 간 카드 드래그 앤 드롭 기능 추가
+-프로젝트 내 카드 드래그 앤 드롭 기능 추가
+
+2025-05-05
+-프로젝트 간 카드 드래그 앤 드롭 이벤트 오류 수정(트랜잭션 제거 후 move와 reorder를 순차적 처리)
+-app.py 라우트 분리
+-dashboard.html을 css, html, js 별도 파일로 분리하고 기능 모듈화

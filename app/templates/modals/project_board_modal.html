@@ -1,0 +1,27 @@
+<!-- Project Board Modal -->
+<div class="modal fade" id="projectBoardModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
+            <i class="bi bi-arrow-left"></i> Back to All Projects
+          </button>
+          <div class="kanban-board">
+            {% for project in projects %}
+            <div class="kanban-column" data-project-id="{{ project._id }}">
+              <h5>{{ project.name }}</h5>
+              <div id="todo-column-{{ project._id }}" class="card-container" data-project-id="{{ project._id }}"></div>
+              <button class="btn add-card-btn" data-status="todo" data-project-id="{{ project._id }}">
+                <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+              </button>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
