@@ -5,8 +5,8 @@ function initializeProjects() {
         e.stopPropagation();
         const projectId = button.dataset.projectId;
         const isOwner = button.classList.contains("delete-project");
-        const action = isOwner ? "삭제" : "나가기";
-        if (confirm(`이 프로젝트를 ${action}하시겠습니까?`)) {
+        const action = isOwner ? "를 삭제하시겠습니까?" : "에서 나가시겠습니까?";
+        if (confirm(`이 프로젝트${action}`)) {
           try {
             const response = await fetch(`/projects/${projectId}`, {
               method: "DELETE"
