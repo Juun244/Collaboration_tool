@@ -3,7 +3,7 @@
 python -m venv venv
 
 2. 가상환경 활성화
-app\venv\Scripts\activate
+venv\Scripts\activate
 활성화시 터미널 앞에 (venv)가 표시됨
 비활성화 하려면 터미널에 deactivate 입력
 
@@ -12,10 +12,6 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 입력하여 권한 부여
 
 3.가상환경에 패키지 설치
-pip install flask pymongo flask-bcrypt flask-session
-pip install flask-pymongo
-
-또는
 
 pip install -r requirements.txt
 패키지목록 추출
@@ -67,3 +63,12 @@ python -m app
 -프로젝트 간 카드 드래그 앤 드롭 이벤트 오류 수정(트랜잭션 제거 후 move와 reorder를 순차적 처리)
 -app.py 라우트 분리
 -dashboard.html을 css, html, js 별도 파일로 분리하고 기능 모듈화
+
+2025-05-11
+-소셜로그인(구글, 카카오) 추가
+-자동로그인 추가
+-이메일 인증 추가
+-미인증 로그인 시 재인증 추가
+-비밀번호 유효성 검사 추가
+-비밀번호 재설정 추가
+-로그인, 회원가입창 ui 변경
