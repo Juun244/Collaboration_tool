@@ -49,6 +49,7 @@
         <i class="bi bi-plus-lg"></i> New Project
       </button>
     </div>
+
     <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
       {% for project in projects %}
       <div class="project-card-wrapper" data-project-id="{{ project._id }}">
@@ -56,6 +57,16 @@
           <div class="card-body">
             <h5 class="card-title">{{ project.name }}</h5>
             <p class="card-text truncate-description">{{ project.description }}</p>
+
+            {% if project.deadline %}
+               <p class="card-text"><strong>마감일:</strong> 📅 {{ project.deadline }}</p>
+               {% if project.d_day %}
+                  <span class="badge bg-warning text-dark ms-2">{{ project.d_day }}</span>
+               {% endif %}
+            </p>
+            {% endif %}
+
+
             <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
             <span class="member-count">{{ project.members|length }} members</span>
             <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
@@ -65,13 +76,13 @@
               <i class="bi bi-person-plus"></i> Invite
             </button>
             {% if project.owner == user._id %}
-              <button class="btn btn-sm btn-outline-danger delete-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-                <i class="bi bi-trash"></i> Delete
-              </button>
+            <button class="btn btn-sm btn-outline-danger delete-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+              <i class="bi bi-trash"></i> Delete
+            </button>
             {% else %}
-              <button class="btn btn-sm btn-outline-secondary leave-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-                <i class="bi bi-box-arrow-left"></i> Leave
-              </button>
+            <button class="btn btn-sm btn-outline-secondary leave-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+              <i class="bi bi-box-arrow-left"></i> Leave
+            </button>
             {% endif %}
           </div>
         </div>
@@ -97,3 +108,7 @@
 <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
 </body>
 </html>
+
+
+
+

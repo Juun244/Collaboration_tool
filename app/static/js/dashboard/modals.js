@@ -5,7 +5,8 @@ function initializeModals() {
     const formData = new FormData(form);
     const data = {
       name: formData.get("name"),
-      description: formData.get("description")
+      description: formData.get("description"),
+      deadline: formData.get("deadline")
     };
     try {
       const response = await fetch("/projects/create", {
@@ -15,7 +16,12 @@ function initializeModals() {
       });
       if (response.ok) {
         alert("프로젝트가 생성되었습니다!");
-        bootstrap.Modal.getInstance(document.getElementById("newProjectModal")).hide();
+
+  // 🔧 모달 닫기 안전 처리
+        const modalElement = document.getElementById("newProjectModal");
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modalInstance.hide();
+
         form.reset();
         window.location.reload();
       } else {
@@ -147,3 +153,7 @@ function initializeModals() {
     });
   });
 }
+
+
+
+
