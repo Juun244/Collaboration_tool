@@ -11,15 +11,7 @@
             <i class="bi bi-arrow-left"></i> Back to All Projects
           </button>
           <div class="kanban-board">
-            {% for project in projects %}
-            <div class="kanban-column" data-project-id="{{ project._id }}">
-              <h5>{{ project.name }}</h5>
-              <div id="todo-column-{{ project._id }}" class="card-container" data-project-id="{{ project._id }}"></div>
-              <button class="btn add-card-btn" data-status="todo" data-project-id="{{ project._id }}">
-                <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
-              </button>
-            </div>
-            {% endfor %}
+           <p class="text-muted">📝 이곳은 추후 프로젝트 상세 정보를 표시할 영역입니다.</p>
           </div>
         </div>
       </div>
