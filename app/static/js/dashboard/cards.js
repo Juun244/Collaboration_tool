@@ -39,7 +39,9 @@ async function loadCards() {
   
       // 카드 수정 버튼 이벤트
       document.querySelectorAll(".edit-card-btn").forEach(button => {
-        button.addEventListener("click", async () => {
+        button.addEventListener("click", async (e) => {
+          e.stopPropagation();
+
           const cardId = button.dataset.cardId;
           const response = await fetch(`/projects/${window.currentProjectId}/cards`);
           if (response.ok) {
@@ -58,7 +60,9 @@ async function loadCards() {
   
       // 카드 삭제 버튼 이벤트
       document.querySelectorAll(".delete-card-btn").forEach(button => {
-        button.addEventListener("click", async () => {
+        button.addEventListener("click", async (e) => {
+          e.stopPropagation();
+
           const cardId = button.dataset.cardId;
           if (confirm("이 카드를 삭제하시겠습니까?")) {
             try {
@@ -88,3 +92,4 @@ async function loadCards() {
   function initializeCards() {
     loadCards();
   }
+
