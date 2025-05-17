@@ -4,6 +4,7 @@ from flask_pymongo import PyMongo
 from bson import ObjectId
 from datetime import datetime
 from app.utils.helpers import logger, safe_object_id, handle_db_error
+from flask import render_template
 
 projects_bp = Blueprint('projects', __name__)
 
@@ -37,13 +38,30 @@ def get_project_order():
 
 @projects_bp.route("/projects/create", methods=["POST"])
 @login_required
+
 def create_project():
     data = request.get_json()
+    print("📥 수신된 deadline 원본 값:", data.get("deadline"))
     if not data or "name" not in data:
+        
+
         logger.error("Missing project name in request")
         return jsonify({"message": "프로젝트 이름이 필요합니다."}), 400
 
     try:
+        print("📦 전달된 deadline 값:", data.get("deadline"))
+
+        deadline_str = data.get("deadline")
+        deadline = None
+
+        if deadline_str:
+            try:
+                deadline = datetime.strptime(deadline_str, "%Y-%m-%d")
+            except ValueError:
+                logger.warning(f"Invalid deadline format: {deadline_str}")
+
+
+
         max_order = mongo.db.projects.find({"members": ObjectId(current_user.id)}).sort("order", -1).limit(1)
         max_order_doc = next(max_order, None)
         max_order_value = max_order_doc["order"] + 1 if max_order_doc else 0
@@ -51,20 +69,21 @@ def create_project():
         new_project = {
             "name": data["name"],
             "description": data.get("description", ""),
+            "deadline": deadline,  
             "members": [ObjectId(current_user.id)],
             "owner": ObjectId(current_user.id),
             "created_at": datetime.utcnow(),
             "order": max_order_value
         }
+        print("📦 new_project 데이터:", new_project)
+
 
         result = mongo.db.projects.insert_one(new_project)
-        logger.info(f"Created project: {result.inserted_id}")
-        return jsonify({
-            "id": str(result.inserted_id),
-            "name": new_project["name"]
-        }), 201
+        return jsonify({"id": str(result.inserted_id), "name": new_project["name"]}), 201
+
     except Exception as e:
         return handle_db_error(e)
+
 
 @projects_bp.route("/projects/<project_id>", methods=["DELETE"])
 @login_required
@@ -173,3 +192,4 @@ def respond_invitation():
         logger.info(f"User {current_user.id} declined invitation for project {project_id}")
 
     return jsonify({"message": f"{action} 처리 완료"}), 200
+
