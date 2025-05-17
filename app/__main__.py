@@ -3,7 +3,7 @@ from flask_pymongo import PyMongo
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
-from app.utils.mail import mail  # ✅ 수정: 인스턴스 가져오기
+from app.utils.mail import mail
 from dotenv import load_dotenv
 import os
 

@@ -1,19 +1,92 @@
 <!-- Project Board Modal -->
-<div class="modal fade" id="projectBoardModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
-            <i class="bi bi-arrow-left"></i> Back to All Projects
-          </button>
-          <div class="kanban-board">
-           <p class="text-muted">📝 이곳은 추후 프로젝트 상세 정보를 표시할 영역입니다.</p>
+<div class="modal fade" id="projectBoardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
+          <i class="bi bi-arrow-left"></i> Back to All Projects
+        </button>
+        <div class="kanban-board">
+          <div id="history-section">
+            <h3>히스토리</h3>
+            <div id="history-loading" style="display: none;">로딩 중...</div>
+            <ul id="history-list"></ul>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
+
+<script>
+async function loadHistory(projectId) {
+  try {
+    console.log(`Starting loadHistory for project: ${projectId}`);
+    document.getElementById("history-loading").style.display = "block";
+    const response = await fetch(`/projects/${projectId}/history`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    });
+    document.getElementById("history-loading").style.display = "none";
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log("History data:", data);
+
+    const historyList = document.getElementById("history-list");
+    historyList.innerHTML = "";
+    if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "히스토리가 없습니다.";
+      historyList.appendChild(li);
+      return;
+    }
+
+    data.history.forEach(entry => {
+      const li = document.createElement("li");
+      let detailText = "";
+      switch (entry.action) {
+        case "create":
+          detailText = `카드 생성: ${entry.details.title}`;
+          break;
+        case "delete":
+          detailText = `카드 삭제: ${entry.details.title}`;
+          break;
+        case "move_in":
+          detailText = `이동된 카드: ${entry.details.title} ${entry.details.from_project} -> ${entry.details.to_project}`;
+          break;
+        case "move_out":
+          detailText = `이동된 카드: ${entry.details.title} ${entry.details.from_project} -> ${entry.details.to_project}`;
+          break;
+        case "status_update":
+          detailText = `상태 변경: ${entry.details.from_status} -> ${entry.details.to_status} (${entry.details.title})`;
+          break;
+        case "reorder":
+          detailText = `카드 순서 변경: ${entry.details.title} (새 순서: ${entry.details.new_order})`;
+          break;
+        case "update":
+          detailText = `카드 수정: ${Object.keys(entry.details).map(key => `${key}: ${entry.details[key].from} -> ${entry.details[key].to}`).join(", ")}`;
+          break;
+        default:
+          detailText = `알 수 없는 작업: ${JSON.stringify(entry.details)}`;
+      }
+      const date = new Date(entry.created_at);
+      li.textContent = `${date.toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })} ${entry.user}: ${detailText}`;
+      historyList.appendChild(li);
+    });
+  } catch (error) {
+    console.error("Failed to load history:", error);
+    document.getElementById("history-loading").style.display = "none";
+    const historyList = document.getElementById("history-list");
+    historyList.innerHTML = "";
+    const li = document.createElement("li");
+    li.textContent = "히스토리를 불러오는 데 실패했습니다.";
+    historyList.appendChild(li);
+  }
+}
+</script>

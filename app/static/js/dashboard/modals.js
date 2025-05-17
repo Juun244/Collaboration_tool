@@ -140,10 +140,15 @@ function initializeModals() {
     card.addEventListener("click", e => {
       if (e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")) return;
       window.currentProjectId = card.closest(".project-card-wrapper").dataset.projectId;
+      if (!window.currentProjectId) {
+        console.error("Project ID not found on project-card-wrapper", card);
+        return; // 프로젝트 ID 없으면 모달 열지 않음
+      }
       const projectName = card.querySelector(".card-title").textContent;
       document.getElementById("projectBoardTitle").textContent = projectName;
       new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
       loadCards();
+      loadHistory(window.currentProjectId)
     });
   });
 }
