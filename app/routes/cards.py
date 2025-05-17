@@ -13,13 +13,6 @@ def init_cards(app):
     global mongo
     mongo = PyMongo(app)
 
-# 히스토리 조회
-@cards_bp.route("/projects/<project_id>/history", methods=["GET"])
-@login_required
-def get_project_history_route(project_id):
-    history_list, response, status = get_project_history(mongo, project_id, current_user.get_id())
-    return jsonify(response), status
-
 @cards_bp.route("/projects/all/cards", methods=["GET"])
 @login_required
 def get_all_cards():
@@ -69,7 +62,6 @@ def move_card(project_id):
     source_project_id = data.get("sourceProjectId")
     order = data.get("order", [])
 
-    # 페이로드 검증
     missing_fields = []
     if not card_id:
         missing_fields.append("cardId")
@@ -133,15 +125,16 @@ def move_card(project_id):
             "title": card["title"]
         }
 
-        # 원래 프로젝트에 move_out 기록
-        log_history(
-            mongo,
-            source_project_id,
-            card_id,
-            current_user.get_id(),
-            "move_out",
-            history_details
-        )
+        if(from_project != to_project):
+            # 원래 프로젝트에 move_out 기록
+            log_history(
+                mongo,
+                source_project_id,
+                card_id,
+                current_user.get_id(),
+                "card_move_out",
+                history_details
+            )
 
         # 대상 프로젝트에 move_in 기록
         log_history(
@@ -149,7 +142,7 @@ def move_card(project_id):
             target_project_id,
             card_id,
             current_user.get_id(),
-            "move_in",
+            "card_move_in",
             history_details
         )
 
@@ -224,7 +217,7 @@ def create_card(project_id):
             project_id,
             str(result.inserted_id),
             current_user.get_id(),
-            "create",
+            "card_create",
             {"title": new_card["title"]}
         )
         logger.info(f"Created card: {result.inserted_id} in project {project_id}")
@@ -269,7 +262,7 @@ def delete_card(project_id, card_id):
         project_id,
         card_id,
         current_user.get_id(),
-        "delete",
+        "card_delete",
         {"title": card["title"]}
     )
 
@@ -342,7 +335,7 @@ def update_card_status(project_id, card_id):
         project_id,
         card_id,
         current_user.get_id(),
-        "status_update",
+        "card_status_update",
         {
             "from_status": card["status"],
             "to_status": data["status"],
@@ -407,7 +400,7 @@ def reorder_cards(project_id):
                         project_id,
                         str(card_id),
                         current_user.get_id(),
-                        "reorder",
+                        "card_reorder",
                         {"title": card["title"], "new_order": index}
                     )
     except PyMongoError as e:
@@ -461,7 +454,7 @@ def update_card(project_id, card_id):
             project_id,
             card_id,
             current_user.get_id(),
-            "update",
+            "card_update",
             changes
         )
 
