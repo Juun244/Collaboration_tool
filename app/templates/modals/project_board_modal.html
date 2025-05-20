@@ -1,5 +1,5 @@
 <!-- Project Board Modal -->
- <script>
+<script>
 window.currentUser = {
   id: "{{ current_user.get_id() }}",
   username: "{{ current_user.username }}"
@@ -19,6 +19,9 @@ window.currentUser = {
           <i class="bi bi-arrow-left"></i> Back to All Projects
         </button>
         <div class="kanban-board">
+          <!-- 단일 카드 컨테이너 -->
+          <div class="card-container mb-4"></div>
+          <!-- 히스토리 섹션 -->
           <div id="history-section">
             <h3 id="history-toggle" style="cursor: pointer;">
               <i id="history-arrow" class="bi bi-caret-right-fill me-1"></i> 히스토리
@@ -26,17 +29,17 @@ window.currentUser = {
             <div id="history-loading" style="display: none;">로딩 중...</div>
             <ul id="history-list"></ul>
           </div>
-        </div>
-         <div class="comment-section mt-5">
-          <h4>댓글</h4>
-          <div id="comment-list"></div>
-          <div class="comment-input mt-3 d-flex">
-            <textarea id="new-comment-content" class="form-control me-2" rows="2" placeholder="댓글을 입력하세요"></textarea>
-            <button id="add-comment-btn" class="btn btn-primary">등록</button>
+          <!-- 댓글 섹션 -->
+          <div class="comment-section mt-5">
+            <h4>댓글</h4>
+            <div id="comment-list"></div>
+            <div class="comment-input mt-3 d-flex">
+              <textarea id="new-comment-content" class="form-control me-2" rows="2" placeholder="댓글을 입력하세요"></textarea>
+              <button id="add-comment-btn" class="btn btn-primary">등록</button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 </div>
-
