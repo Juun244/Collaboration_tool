@@ -6,7 +6,7 @@ from flask_mail import Mail
 from app.utils.mail import mail
 from dotenv import load_dotenv
 import os
-
+from app.sockets.socket import socketio
 from app.routes.auth import auth_bp, init_auth
 from app.routes.projects import projects_bp, init_projects
 from app.routes.cards import cards_bp, init_cards
@@ -30,6 +30,7 @@ app.config.update(
 # 확장 기능 초기화
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
+socketio.init_app(app)
 mail.init_app(app)  # ✅ Flask-Mail 초기화 (Mail(app) ❌ 아님!)
 
 # 로그인 매니저 초기화
@@ -74,4 +75,4 @@ app.register_blueprint(projects_bp)
 app.register_blueprint(cards_bp)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.run(app, debug=True)

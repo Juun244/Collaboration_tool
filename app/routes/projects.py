@@ -6,12 +6,29 @@ from datetime import datetime
 from app.utils.helpers import logger, safe_object_id, handle_db_error
 from app.utils.history import log_history, get_project_history
 from pymongo.errors import PyMongoError
+from flask import current_app
+from flask_socketio import emit
 
 projects_bp = Blueprint('projects', __name__)
 
 def init_projects(app):
     global mongo
     mongo = PyMongo(app)
+
+def _emit_project_member_updated(project_id, project_name):
+    project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
+    if project:
+        member_count = len(project.get("members", []))
+        emit(
+            'project_member_updated',
+            {
+                "project_id": project_id,
+                "member_count": member_count,
+                "project_name": project_name
+            },
+            broadcast=True,
+            namespace='/notifications'
+        )
 
 @projects_bp.route("/projects/reorder", methods=["POST"])
 @login_required
@@ -116,6 +133,7 @@ def delete_or_leave_project(project_id):
                 "username": current_user.username
             }
         )
+
         logger.info(f"User {user_id} left project: {project_id}")
         return jsonify({"message": "프로젝트에서 나갔습니다."}), 200
 
@@ -164,6 +182,16 @@ def invite_member(project_id):
         {"$push": {"invitations": project["_id"]}}
     )
     logger.info(f"Sent invitation to {username} for project {project_id}")
+
+    emit(
+        'new_invitation',
+        {
+            "project_id": str(project["_id"]),
+            "project_name": project["name"]
+        },
+        room=str(user["_id"]), # 초대받은 사용자 ID를 room 이름으로 사용
+        namespace='/notifications'
+    )
     return jsonify({"message": "초대가 전송되었습니다."}), 200
 
 @projects_bp.route('/invitations', methods=['GET'])

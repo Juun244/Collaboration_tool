@@ -1,3 +1,5 @@
+import { emitCardDeleted } from './socket.js';
+
 async function loadCards() {
     try {
       const response = await fetch("/projects/all/cards");
@@ -71,6 +73,7 @@ async function loadCards() {
               });
               if (response.ok) {
                 alert("카드가 삭제되었습니다.");
+                emitCardDeleted({ project_id: window.currentProjectId, card_id: cardId });
                 loadCards();
               } else {
                 const error = await response.json();

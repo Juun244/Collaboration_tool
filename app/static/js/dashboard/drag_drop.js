@@ -1,3 +1,5 @@
+import { emitCardDeleted } from './socket.js';
+
 let dragged = null;
 let dragClone = null;
 let dragTimer = null;
@@ -269,6 +271,7 @@ function initializeDragAndDrop() {
 
     console.log(`Dropping card ${cardId} to project ${targetProjectId}`);
     await updateCardProjectAndOrder(cardId, targetProjectId, container);
+    emitCardMoved({ project_id: targetProjectId, card_id: cardId, order });
   }
 
   async function updateCardProjectAndOrder(cardId, targetProjectId, container) {

@@ -1,3 +1,5 @@
+import { initializeSocket, emitCardCreated, emitCardUpdated } from './socket.js';
+
 function initializeModals() {
   // 프로젝트 생성
   document.getElementById("createProject").addEventListener("click", async () => {
@@ -86,6 +88,7 @@ function initializeModals() {
         bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
         form.reset();
         loadCards(); // cards.js에서 정의된 함수
+        emitCardCreated({ project_id: projectId, card: createdCard });
       } else {
         const error = await response.json();
         alert(error.message || "카드 생성 실패");
@@ -117,6 +120,7 @@ function initializeModals() {
         bootstrap.Modal.getInstance(document.getElementById("editCardModal")).hide();
         form.reset();
         loadCards();
+        emitCardUpdated({ project_id: projectId, card: updatedCard });
       } else {
         const error = await response.json();
         alert(error.message || "카드 수정 실패");
@@ -140,6 +144,7 @@ function initializeModals() {
     card.addEventListener("click", e => {
       if (e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")) return;
       window.currentProjectId = card.closest(".project-card-wrapper").dataset.projectId;
+      initializeSocket(window.currentProjectId);
       if (!window.currentProjectId) {
         console.error("Project ID not found on project-card-wrapper", card);
         return; // 프로젝트 ID 없으면 모달 열지 않음
