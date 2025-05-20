@@ -275,62 +275,31 @@ function initializeDragAndDrop() {
     const cards = [...container.querySelectorAll('.task-card')];
     const order = cards.map(card => card.dataset.cardId);
     console.log(`Updating card ${cardId} to project ${targetProjectId} with order:`, order);
-
+  
     try {
-      // sourceProjectId 검증
-      const sourceProjectId = draggedCard?.dataset.projectId;
-      if (!sourceProjectId) {
-        console.error('draggedCard:', draggedCard);
-        console.error('draggedCard.dataset:', draggedCard?.dataset);
-        throw new Error('Source project ID not found in draggedCard. Ensure task-card has data-project-id.');
-      }
-      if (!cardId) {
-        throw new Error('Card ID is missing');
-      }
-      if (!targetProjectId) {
-        throw new Error('Target project ID is missing');
-      }
-
-      console.log(`Moving card ${cardId} from ${sourceProjectId} to ${targetProjectId}`);
-      const payload = {
-        cardId,
-        projectId: targetProjectId,
-        sourceProjectId,
-        order
-      };
-      console.log('Request payload:', payload);
-      const response = await fetch(`/projects/${sourceProjectId}/cards/move`, {
+      const sourceProjectId = draggedCard ? draggedCard.dataset.projectId : null;
+      // 카드 이동 및 순서 업데이트를 서버에서 한 번에 처리
+      const response = await fetch(`/projects/${targetProjectId}/cards/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          cardId,
+          projectId: targetProjectId,
+          order
+        })
       });
-
-      let errorData = null;
-      try {
-        errorData = await response.json();
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', await response.text());
-        errorData = { message: '서버 응답을 파싱할 수 없습니다.' };
-      }
-
+  
       if (!response.ok) {
-        console.error(`카드 이동/순서 업데이트 실패: ${errorData.message}`, errorData);
-        alert(errorData.message || '카드 이동/순서 업데이트에 실패했습니다.');
+        const error = await response.json();
+        console.error('카드 이동/순서 업데이트 실패:', error);
+        alert(error.message || '카드 이동/순서 업데이트에 실패했습니다.');
         return;
       }
-
-      console.log(`Card ${cardId} successfully moved from ${sourceProjectId} to ${targetProjectId}`);
-      // draggedCard의 projectId 갱신
-      if (draggedCard) {
-        draggedCard.dataset.projectId = targetProjectId;
-      }
-      // 양쪽 프로젝트의 히스토리 갱신
-      await loadHistory(sourceProjectId);
-      await loadHistory(targetProjectId);
-      loadCards();
+  
+      console.log(`Card ${cardId} successfully moved to project ${targetProjectId}`);
+      loadCards(); // cards.js에서 정의된 함수 호출
     } catch (error) {
-      console.error('Error updating card:', error.message);
+      console.error('Error updating card:', error);
       alert('카드 이동/순서 업데이트 중 오류가 발생했습니다: ' + error.message);
     }
   }
@@ -338,7 +307,7 @@ function initializeDragAndDrop() {
 
 function handleCardDragStart(e) {
   e.stopPropagation();
-  draggedCard = e.target.closest('.task-card');
+  draggedCard = e.target;
   e.target.classList.add('dragging');
   e.dataTransfer.setData('text/plain', e.target.dataset.cardId);
   e.dataTransfer.effectAllowed = 'move';

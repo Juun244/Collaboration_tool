@@ -1,26 +1,49 @@
 <!-- Project Board Modal -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-<div class="modal fade" id="projectBoardModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
-          <i class="bi bi-arrow-left"></i> Back to All Projects
-        </button>
-        <div class="kanban-board">
-          <div id="history-section">
-            <h3 id="history-toggle" style="cursor: pointer;">
-              <i id="history-arrow" class="bi bi-caret-right-fill me-1"></i> 히스토리
-            </h3>
-            <div id="history-loading" style="display: none;">로딩 중...</div>
-            <ul id="history-list"></ul>
+<div class="modal fade" id="projectBoardModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
+            <i class="bi bi-arrow-left"></i> Back to All Projects
+          </button>
+          <div class="kanban-board">
+            <div class="kanban-column" data-status="todo">
+              <h5>To Do</h5>
+              <div id="todo-column" class="card-container" data-status="todo"></div>
+              <button class="btn add-card-btn" data-status="todo" data-project-id="">
+                <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+              </button>
+            </div>
+            <div class="kanban-column" data-status="in_progress">
+              <h5>In Progress</h5>
+              <div id="in-progress-column" class="card-container" data-status="in_progress"></div>
+              <button class="btn add-card-btn" data-status="in_progress" data-project-id="">
+                <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+              </button>
+            </div>
+            <div class="kanban-column" data-status="done">
+              <h5>Done</h5>
+              <div id="done-column" class="card-container" data-status="done"></div>
+              <button class="btn add-card-btn" data-status="done" data-project-id="">
+                <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
-</div>
+
+<script>
+document.getElementById('projectBoardModal').addEventListener('show.bs.modal', function (event) {
+  // 모달이 열릴 때 모든 카드 추가 버튼의 data-project-id를 현재 프로젝트 ID로 설정
+  const currentProjectId = window.currentProjectId;
+  document.querySelectorAll('#projectBoardModal .add-card-btn').forEach(button => {
+    button.dataset.projectId = currentProjectId;
+  });
+});
+</script>

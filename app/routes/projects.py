@@ -4,8 +4,6 @@ from flask_pymongo import PyMongo
 from bson import ObjectId
 from datetime import datetime
 from app.utils.helpers import logger, safe_object_id, handle_db_error
-from app.utils.history import log_history, get_project_history
-from pymongo.errors import PyMongoError
 
 projects_bp = Blueprint('projects', __name__)
 
@@ -24,7 +22,7 @@ def reorder_projects():
         if not oid:
             continue
         mongo.db.projects.update_one(
-            {"_id": oid, "members": ObjectId(current_user.get_id())},
+            {"_id": oid, "members": ObjectId(current_user.id)},
             {"$set": {"order": index}}
         )
     
@@ -33,7 +31,7 @@ def reorder_projects():
 @projects_bp.route("/projects/order", methods=["GET"])
 @login_required
 def get_project_order():
-    projects = mongo.db.projects.find({"members": ObjectId(current_user.get_id())}).sort("order", 1)
+    projects = mongo.db.projects.find({"members": ObjectId(current_user.id)}).sort("order", 1)
     order = [str(project["_id"]) for project in projects]
     return jsonify({"order": order}), 200
 
@@ -46,32 +44,20 @@ def create_project():
         return jsonify({"message": "프로젝트 이름이 필요합니다."}), 400
 
     try:
-        max_order = mongo.db.projects.find({"members": ObjectId(current_user.get_id())}).sort("order", -1).limit(1)
+        max_order = mongo.db.projects.find({"members": ObjectId(current_user.id)}).sort("order", -1).limit(1)
         max_order_doc = next(max_order, None)
         max_order_value = max_order_doc["order"] + 1 if max_order_doc else 0
 
         new_project = {
             "name": data["name"],
             "description": data.get("description", ""),
-            "members": [ObjectId(current_user.get_id())],
-            "owner": ObjectId(current_user.get_id()),
+            "members": [ObjectId(current_user.id)],
+            "owner": ObjectId(current_user.id),
             "created_at": datetime.utcnow(),
             "order": max_order_value
         }
 
         result = mongo.db.projects.insert_one(new_project)
-        # 히스토리 기록
-        log_history(
-            mongo=mongo,
-            project_id=str(result.inserted_id),
-            card_id=None,
-            user_id=current_user.get_id(),
-            action="create",
-            details={
-                "project_name": new_project["name"],
-                "username": current_user.username
-            }
-        )
         logger.info(f"Created project: {result.inserted_id}")
         return jsonify({
             "id": str(result.inserted_id),
@@ -92,7 +78,7 @@ def delete_or_leave_project(project_id):
         logger.error(f"Project not found: {project_id}")
         return jsonify({"error": "프로젝트를 찾을 수 없습니다."}), 404
 
-    user_id = ObjectId(current_user.get_id())
+    user_id = ObjectId(current_user.id)
     if project.get("owner") == user_id:
         mongo.db.projects.delete_one({"_id": oid})
         mongo.db.cards.delete_many({"project_id": oid})
@@ -102,19 +88,6 @@ def delete_or_leave_project(project_id):
         mongo.db.projects.update_one(
             {"_id": oid},
             {"$pull": {"members": user_id}}
-        )
-
-        # 히스토리 기록
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=None,
-            user_id=current_user.get_id(),
-            action="leave",
-            details={
-                "project_name": project["name"],
-                "username": current_user.username
-            }
         )
         logger.info(f"User {user_id} left project: {project_id}")
         return jsonify({"message": "프로젝트에서 나갔습니다."}), 200
@@ -169,9 +142,9 @@ def invite_member(project_id):
 @projects_bp.route('/invitations', methods=['GET'])
 @login_required
 def get_invitations():
-    user_data = mongo.db.users.find_one({"_id": ObjectId(current_user.get_id())})
+    user_data = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
     invitations = list(mongo.db.projects.find({"_id": {"$in": user_data.get("invitations", [])}}))
-    logger.info(f"Retrieved {len(invitations)} invitations for user {current_user.get_id()}")
+    logger.info(f"Retrieved {len(invitations)} invitations for user {current_user.id}")
     return jsonify({
         "invitations": [{"id": str(p["_id"]), "name": p["name"]} for p in invitations]
     })
@@ -185,104 +158,18 @@ def respond_invitation():
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
     action = data.get("action")
-    project = mongo.db.projects.find_one({"_id": project_id})
-    if not project:
-        logger.error(f"Project not found: {project_id}")
-        return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
-
     mongo.db.users.update_one(
-        {"_id": ObjectId(current_user.get_id())},
+        {"_id": ObjectId(current_user.id)},
         {"$pull": {"invitations": project_id}}
     )
 
     if action == "accept":
         mongo.db.projects.update_one(
             {"_id": project_id},
-            {"$addToSet": {"members": ObjectId(current_user.get_id())}}
+            {"$addToSet": {"members": ObjectId(current_user.id)}}
         )
-        
-        # 히스토리 기록
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=None,
-            user_id=current_user.get_id(),
-            action="join",
-            details={
-                "project_name": project["name"],
-                "username": current_user.username
-            }
-        )
-        logger.info(f"User {current_user.get_id()} accepted invitation for project {project_id}")
+        logger.info(f"User {current_user.id} accepted invitation for project {project_id}")
     else:
-        logger.info(f"User {current_user.get_id()} declined invitation for project {project_id}")
+        logger.info(f"User {current_user.id} declined invitation for project {project_id}")
 
     return jsonify({"message": f"{action} 처리 완료"}), 200
-
-@projects_bp.route("/projects/search", methods=["GET"])
-@login_required
-def search_projects_and_cards():
-    try:
-        keyword = request.args.get("keyword", "").strip()
-        if not keyword:
-            return jsonify({"projects": [], "cards": [], "message": "키워드가 필요합니다."}), 200
-
-        project_query = {
-            "$or": [
-                {"name": {"$regex": keyword, "$options": "i"}},
-                {"description": {"$regex": keyword, "$options": "i"}}
-            ],
-            "members": ObjectId(current_user.get_id())
-        }
-        projects = mongo.db.projects.find(project_query)
-        project_results = [
-            {
-                "id": str(project["_id"]),
-                "name": project["name"],
-                "description": project.get("description", ""),
-                "type": "project"
-            }
-            for project in projects
-        ]
-
-        card_query = {
-            "$or": [
-                {"title": {"$regex": keyword, "$options": "i"}},
-                {"description": {"$regex": keyword, "$options": "i"}}
-            ]
-        }
-        cards = mongo.db.cards.find(card_query)
-        card_results = []
-        for card in cards:
-            project = mongo.db.projects.find_one({
-                "_id": card["project_id"],
-                "members": ObjectId(current_user.get_id())
-            })
-            if project:
-                card_results.append({
-                    "id": str(card["_id"]),
-                    "project_id": str(card["project_id"]),
-                    "project_name": project["name"],
-                    "title": card["title"],
-                    "description": card.get("description", ""),
-                    "type": "card"
-                })
-
-        logger.info(f"Search executed: keyword={keyword}, projects={len(project_results)}, cards={len(card_results)}")
-        return jsonify({
-            "projects": project_results,
-            "cards": card_results,
-            "message": "검색 완료"
-        }), 200
-    except PyMongoError as e:
-        logger.error(f"Search error: {str(e)}")
-        return handle_db_error(e)
-    except Exception as e:
-        logger.error(f"Unexpected search error: {str(e)}")
-        return jsonify({"message": "서버 오류가 발생했습니다."}), 500
-
-@projects_bp.route("/history/<project_id>", methods=["GET"])
-@login_required
-def get_history(project_id):
-    history_list, response, status = get_project_history(mongo, project_id, current_user.get_id())
-    return jsonify(response), status

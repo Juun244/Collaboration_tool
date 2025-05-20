@@ -16,6 +16,15 @@
               <label class="form-label">Description</label>
               <textarea class="form-control" name="description" rows="3"></textarea>
             </div>
+            <div class="mb-3 status-select-container" style="display: none;">
+              <label class="form-label">Status</label>
+              <select class="form-select" name="status" required>
+                <option value="todo">To Do</option>
+                <option value="in_progress">In Progress</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <input type="hidden" name="status" required />
           </form>
         </div>
         <div class="modal-footer">

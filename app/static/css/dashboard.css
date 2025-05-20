@@ -105,17 +105,25 @@ body {
     background: #f8f9fa;
     border-radius: 8px;
     overflow-x: auto;
+    gap: 1rem;
   }
   .kanban-column {
-    flex: 0 0 auto;
+    flex: 1;
     min-width: 300px;
     max-width: 400px;
-    margin: 0 0.5rem;
     background: #fff;
     border-radius: 8px;
     padding: 1rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    cursor: pointer;
+  }
+  .kanban-column[data-status="todo"] {
+    border-top: 4px solid #6c757d;
+  }
+  .kanban-column[data-status="in_progress"] {
+    border-top: 4px solid #0d6efd;
+  }
+  .kanban-column[data-status="done"] {
+    border-top: 4px solid #198754;
   }
   .card-container {
     min-height: 200px;
@@ -126,6 +134,19 @@ body {
     border: 2px solid #dee2e6;
     border-radius: 8px;
     background: #fafafa;
+    margin-bottom: 1rem;
+  }
+  .card-container[data-status="todo"] {
+    border-color: #6c757d;
+    background-color: rgba(108, 117, 125, 0.05);
+  }
+  .card-container[data-status="in_progress"] {
+    border-color: #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+  }
+  .card-container[data-status="done"] {
+    border-color: #198754;
+    background-color: rgba(25, 135, 84, 0.05);
   }
   .task-card {
     background: white;
@@ -277,87 +298,4 @@ body {
     color: #6c757d;
     margin-top: 0.5rem;
     display: block;
-  }
-
-  /* 돋보기 버튼과 New Project 버튼 간격 조정 */
-  .d-flex.gap-2 .btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  /* 검색 모달 입력 필드 스타일 */
-  #searchModal .form-control {
-    border-radius: 0.375rem;
-  }
-
-  /* 검색 결과 placeholder 스타일 */
-  #searchResults {
-    min-height: 100px;
-    border: 1px dashed #ccc;
-    border-radius: 0.375rem;
-    padding: 1rem;
-    text-align: center;
-    color: #6c757d;
-  }
-
-  .d-flex.gap-2 .btn {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  #searchModal .form-control {
-    border-radius: 0.375rem;
-  }
-
-  #searchResults {
-    min-height: 100px;
-    padding: 1rem;
-  }
-
-  #searchResults .list-group-item {
-    border-radius: 0.375rem;
-    margin-bottom: 0.5rem;
-    cursor: pointer;
-  }
-
-  #searchResults h6 {
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-    font-weight: bold;
-  }
-
-  /* 하이라이트 효과 */
-  .project-card-wrapper.highlight,
-  .project-card-wrapper.highlight .project-card,
-  .task-card.highlight {
-    animation: highlight 0.5s ease-in-out 3 !important;
-    background-color: #fff3cd !important; /* 즉시 노란색 적용 */
-  }
-
-  @keyframes highlight {
-    0%, 100% { background-color: inherit; }
-    50% { background-color: #fff3cd; }
-  }
-
-  #history-list {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.3s ease;
-  }
-
-  #history-list.open {
-    max-height: 500px; /* 충분히 큰 값 */
-  }
-
-  #history-arrow {
-    display: inline-block;
-    transition: transform 0.2s ease;
-    width: 1em;
-    text-align: center;
-  }
-
-  #history-list.open ~ #history-arrow {
-    transform: rotate(90deg);
   }

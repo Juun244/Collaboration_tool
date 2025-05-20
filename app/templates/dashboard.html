@@ -45,14 +45,9 @@
   <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
       <h2>프로젝트 목록</h2>
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#searchModal" aria-label="프로젝트 검색">
-          <i class="bi bi-search"></i>
-        </button>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
-          <i class="bi bi-plus-lg"></i> New Project
-        </button>
-      </div>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+        <i class="bi bi-plus-lg"></i> New Project
+      </button>
     </div>
     <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
       {% for project in projects %}
@@ -92,7 +87,6 @@
 {% include 'modals/project_board_modal.html' %}
 {% include 'modals/create_card_modal.html' %}
 {% include 'modals/edit_card_modal.html' %}
-{% include 'modals/search_modal.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard/main.js') }}"></script>
@@ -101,8 +95,5 @@
 <script src="{{ url_for('static', filename='js/dashboard/cards.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/projects.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
-<script src="{{ url_for('static', filename='js/dashboard/history.js') }}"></script>
-<script src="{{ url_for('static', filename='js/dashboard/search.js') }}"></script>
-
 </body>
 </html>
