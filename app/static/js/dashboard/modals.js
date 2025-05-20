@@ -135,20 +135,37 @@ function initializeModals() {
     });
   });
 
-  // 프로젝트 보드 모달 열기
-  document.querySelectorAll(".project-card").forEach(card => {
-    card.addEventListener("click", e => {
-      if (e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")) return;
-      window.currentProjectId = card.closest(".project-card-wrapper").dataset.projectId;
-      if (!window.currentProjectId) {
-        console.error("Project ID not found on project-card-wrapper", card);
-        return; // 프로젝트 ID 없으면 모달 열지 않음
-      }
-      const projectName = card.querySelector(".card-title").textContent;
-      document.getElementById("projectBoardTitle").textContent = projectName;
-      new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
-      loadCards();
-      loadHistory(window.currentProjectId)
-    });
+ document.addEventListener('click', function(e) {
+    // 클릭된 요소 또는 조상 중에 .project-card가 있으면 잡기
+    const card = e.target.closest('.project-card');
+    if (!card) return; // .project-card 클릭이 아니면 무시
+
+    // .invite-member, .delete-project 등 관리 버튼 눌렀을 때는 동작하지 않음
+    if (e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")) return;
+
+    // project-card-wrapper에서 프로젝트 ID 추출
+    const wrapper = card.closest(".project-card-wrapper");
+    if (!wrapper) return; // 혹시나 wrapper 없으면 중단
+
+    window.currentProjectId = wrapper.dataset.projectId;
+    if (!window.currentProjectId) {
+      console.error("Project ID not found on project-card-wrapper", card);
+      return; // 프로젝트 ID 없으면 모달 열지 않음
+    }
+
+    // 모달에 현재 프로젝트 ID 넣기 (댓글 등 기능 정상 작동 위해)
+    document.getElementById("projectBoardModal").dataset.projectId = window.currentProjectId;
+
+    // 모달 상단에 프로젝트 이름 띄우기
+    const projectName = card.querySelector(".card-title").textContent;
+    document.getElementById("projectBoardTitle").textContent = projectName;
+
+    // 모달 실제로 띄우기
+    new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
+
+    // 카드 및 히스토리 불러오기
+    loadCards();
+    loadHistory(window.currentProjectId)
   });
+  
 }

@@ -286,3 +286,65 @@ def search_projects_and_cards():
 def get_history(project_id):
     history_list, response, status = get_project_history(mongo, project_id, current_user.get_id())
     return jsonify(response), status
+
+
+
+@projects_bp.route("/projects/<project_id>/comments", methods=["GET"])
+@login_required
+def get_comments(project_id):
+    comments = list(mongo.db.comments.find({"project_id": ObjectId(project_id)}).sort("created_at", 1))
+    result = []
+    for c in comments:
+        result.append({
+            "_id": str(c["_id"]),
+            "author_id": str(c["author_id"]),
+            "author_name": c["author_name"],
+            "content": c["content"],
+            "created_at": c["created_at"].strftime("%Y-%m-%d %H:%M")
+        })
+    return jsonify({"comments": result})
+
+@projects_bp.route("/projects/<project_id>/comments", methods=["POST"])
+@login_required
+def add_comment(project_id):
+
+    print(f"DEBUG: 댓글 등록 호출됨: {project_id}")  # ← 추가
+
+    data = request.get_json()
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"error": "내용 필요"}), 400
+    new_comment = {
+        "project_id": ObjectId(project_id),
+        "author_id": ObjectId(current_user.get_id()),
+        "author_name": current_user.username,
+        "content": content,
+        "created_at": datetime.utcnow()
+    }
+    mongo.db.comments.insert_one(new_comment)
+    return jsonify({"message": "ok"}), 201
+
+@projects_bp.route("/comments/<comment_id>", methods=["PUT"])
+@login_required
+def edit_comment(comment_id):
+    data = request.get_json()
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"error": "내용 필요"}), 400
+    comment = mongo.db.comments.find_one({"_id": ObjectId(comment_id)})
+    if not comment or str(comment["author_id"]) != current_user.get_id():
+        return jsonify({"error": "권한 없음"}), 403
+    mongo.db.comments.update_one(
+        {"_id": ObjectId(comment_id)},
+        {"$set": {"content": content}}
+    )
+    return jsonify({"message": "수정됨"})
+
+@projects_bp.route("/comments/<comment_id>", methods=["DELETE"])
+@login_required
+def delete_comment(comment_id):
+    comment = mongo.db.comments.find_one({"_id": ObjectId(comment_id)})
+    if not comment or str(comment["author_id"]) != current_user.get_id():
+        return jsonify({"error": "권한 없음"}), 403
+    mongo.db.comments.delete_one({"_id": ObjectId(comment_id)})
+    return jsonify({"message": "삭제됨"})

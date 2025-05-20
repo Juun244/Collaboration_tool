@@ -74,4 +74,5 @@ app.register_blueprint(projects_bp)
 app.register_blueprint(cards_bp)
 
 if __name__ == "__main__":
+    print(app.url_map)
     app.run(debug=True)
