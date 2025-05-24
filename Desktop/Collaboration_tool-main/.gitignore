@@ -10,5 +10,12 @@ __pycache__/
 *.pyc
 *.pyo
 
-# 환경변수 제외
-#.env
+# 환경 변수 파일
+.env
+*.env
+
+# 로그 및 캐시
+*.log
+
+# 기타
+.DS_Stor

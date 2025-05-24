@@ -11,7 +11,7 @@ from app.routes.auth import auth_bp, init_auth
 from app.routes.projects import projects_bp, init_projects
 from app.routes.cards import cards_bp, init_cards
 from app.routes.chat import register_chat_events
-from app import mongo  # ✅ 이제 여기에 mongo 있음
+from app import mongo
 
 # 환경 변수 로드
 load_dotenv()
@@ -69,7 +69,7 @@ def load_user(user_id):
     user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
     return User(user_data) if user_data else None
 
-# 블루프린트 등록
+# Blueprint 등록 및 초기화
 init_auth(app)
 init_projects(app)
 init_cards(app)
