@@ -26,22 +26,4 @@ document.addEventListener("DOMContentLoaded", () => {
   initializeProjects();
   initializeInvitations();
 
-  // ✅ 채팅 버튼 클릭 시 chatModal 열고 projectId 설정
-  document.querySelectorAll(".open-chat-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation(); // 상세페이지 모달 열리는 버블링 방지
-      e.preventDefault();  // 링크 이동 방지
-
-      const projectId = btn.dataset.projectId;
-      window.currentProjectId = projectId;
-
-      const modal = document.getElementById("chatModal");
-      modal.dataset.projectId = projectId;
-
-      const bsModal = new bootstrap.Modal(modal);
-      bsModal.show();
-
-      console.log("💬 채팅방 입장:", projectId);
-    });
-  });
 });
