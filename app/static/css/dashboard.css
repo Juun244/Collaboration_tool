@@ -361,3 +361,12 @@ body {
   #history-list.open ~ #history-arrow {
     transform: rotate(90deg);
   }
+
+  #projectBoardModal .kanban-board {
+      display: flex;         /* Flexbox 컨테이너로 만듭니다. */
+      flex-direction: column; /* 자식 요소들을 세로(열) 방향으로 정렬합니다. */
+      gap: 20px;             /* 각 섹션 사이에 20px의 간격을 줍니다. (선택 사항) */
+  }
+  #projectBoardModal .task-card {  
+    cursor: default;
+  }
