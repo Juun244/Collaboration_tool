@@ -128,8 +128,22 @@ document.getElementById('add-comment-btn').onclick = function() {
   });
 };
 
-// 모달이 열릴 때 댓글 불러오기
+// 모달이 열릴 때 마다 댓글 불러오기
 document.getElementById('projectBoardModal').addEventListener('show.bs.modal', function(event) {
   const projectId = this.dataset.projectId;
   loadComments(projectId);
+  document.getElementById('add-comment-btn').onclick = function() {
+    const content = document.getElementById('new-comment-content').value.trim();
+    if (!content) return;
+    fetch(`/projects/${projectId}/comments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content })
+    }).then(() => {
+      document.getElementById('new-comment-content').value = "";
+      loadComments(projectId);
+    });
+  };
 });
+
+

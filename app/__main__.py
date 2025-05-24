@@ -1,8 +1,8 @@
 from flask import Flask
-from flask_pymongo import PyMongo
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
 from flask_mail import Mail
+from flask_socketio import SocketIO
 from app.utils.mail import mail
 from dotenv import load_dotenv
 import os
@@ -10,10 +10,13 @@ import os
 from app.routes.auth import auth_bp, init_auth
 from app.routes.projects import projects_bp, init_projects
 from app.routes.cards import cards_bp, init_cards
+from app.routes.chat import register_chat_events
+from app import mongo
 
 # 환경 변수 로드
 load_dotenv()
 
+# Flask 앱 설정
 app = Flask(__name__)
 app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 app.secret_key = os.getenv('SECRET_KEY')
@@ -27,12 +30,13 @@ app.config.update(
     MAIL_PASSWORD=os.getenv('MAIL_PASSWORD'),
 )
 
-# 확장 기능 초기화
-mongo = PyMongo(app)
+# ✅ 확장 기능 초기화
+mongo.init_app(app)  # 여기서 연결함
 bcrypt = Bcrypt(app)
-mail.init_app(app)  # ✅ Flask-Mail 초기화 (Mail(app) ❌ 아님!)
+mail.init_app(app)
+socketio = SocketIO(app)
 
-# 로그인 매니저 초기화
+# 로그인 매니저 설정
 login_manager = LoginManager()
 login_manager.init_app(app)
 
@@ -58,7 +62,7 @@ class User:
     def is_anonymous(self):
         return False
 
-# 사용자 세션 로딩
+# 로그인 세션 로딩
 @login_manager.user_loader
 def load_user(user_id):
     from bson import ObjectId
@@ -73,6 +77,9 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(projects_bp)
 app.register_blueprint(cards_bp)
 
+# ✅ 소켓 이벤트 등록
+register_chat_events(socketio)
+
+# 서버 실행
 if __name__ == "__main__":
-    print(app.url_map)
-    app.run(debug=True)
+    socketio.run(app, debug=True)

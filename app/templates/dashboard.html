@@ -54,35 +54,36 @@
         </button>
       </div>
     </div>
-    <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
-      {% for project in projects %}
-      <div class="project-card-wrapper" data-project-id="{{ project._id }}">
-        <div class="card project-card h-100 position-relative">
-          <div class="card-body">
-            <h5 class="card-title">{{ project.name }}</h5>
-            <p class="card-text truncate-description">{{ project.description }}</p>
-            <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
-            <span class="member-count">{{ project.members|length }} members</span>
-            <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
-              <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
-            </button>
-            <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-              <i class="bi bi-person-plus"></i> Invite
-            </button>
-            {% if project.owner == user._id %}
-              <button class="btn btn-sm btn-outline-danger delete-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-                <i class="bi bi-trash"></i> Delete
-              </button>
-            {% else %}
-              <button class="btn btn-sm btn-outline-secondary leave-project position-absolute end-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-                <i class="bi bi-box-arrow-left"></i> Leave
-              </button>
-            {% endif %}
-          </div>
-        </div>
+
+<div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
+  {% for project in projects %}
+  <div class="project-card-wrapper" data-project-id="{{ project._id }}">
+    <div class="card project-card h-100 position-relative">
+      <div class="card-body">
+        <h5 class="card-title">{{ project.name }}</h5>
+        <p class="card-text truncate-description">{{ project.description }}</p>
+        <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
+        <span class="member-count">{{ project.members|length }} members</span>
+
+        <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
+          <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+        </button>
+
+        <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+          <i class="bi bi-person-plus"></i> Invite
+        </button>
+
+        <!-- ✅ 새로운 Chat 버튼 추가 -->
+        <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
+                data-project-id="{{ project._id }}">
+          <i class="bi bi-chat-dots"></i> Chat
+        </button>
+
       </div>
-      {% endfor %}
     </div>
+  </div>
+  {% endfor %}
+</div>
   </div>
 </div>
 
@@ -93,8 +94,10 @@
 {% include 'modals/create_card_modal.html' %}
 {% include 'modals/edit_card_modal.html' %}
 {% include 'modals/search_modal.html' %}
+{% include 'modals/chat_modal.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/drag_drop.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/modals.js') }}"></script>
@@ -103,6 +106,7 @@
 <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/history.js') }}"></script>
 <script src="{{ url_for('static', filename='js/dashboard/search.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard/chat.js') }}"></script>
 
 </body>
 </html>
