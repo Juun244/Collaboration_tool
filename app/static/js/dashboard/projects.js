@@ -6,7 +6,7 @@ function initializeProjects() {
     return;
   }
 
-  // ✅ 삭제/나가기 버튼 클릭 처리 (카드든 모달이든 모두 적용됨)
+  // ✅ 삭제/나가기 버튼 클릭 처리 (동적 바인딩)
   document.addEventListener("click", async e => {
     if (!e.target.classList.contains("delete-project") && !e.target.classList.contains("leave-project")) return;
 
@@ -115,6 +115,7 @@ function loadComments(projectId) {
     });
 }
 
+// 댓글 추가 이벤트 (전역 한 번만 바인딩)
 document.getElementById('add-comment-btn').onclick = function() {
   const content = document.getElementById('new-comment-content').value.trim();
   const projectId = document.getElementById('projectBoardModal').dataset.projectId;
@@ -129,6 +130,7 @@ document.getElementById('add-comment-btn').onclick = function() {
   });
 };
 
+// 모달 열릴 때마다 댓글 로드
 document.getElementById('projectBoardModal').addEventListener('show.bs.modal', function(event) {
   const projectId = this.dataset.projectId;
   loadComments(projectId);

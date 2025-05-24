@@ -187,6 +187,7 @@ def login():
 
     return render_template("login.html")
 
+
 # 비밀번호 재설정
 @auth_bp.route("/forgot", methods=["GET", "POST"])
 def forgot_password():
@@ -334,7 +335,7 @@ def set_nickname():
             flash("잘못된 접근입니다.", "danger")
             return redirect(url_for("auth.login"))
 
-        if mongo.db.users.find_one({ "username": nickname}):
+        if mongo.db.users.find_one({"username": nickname}):
             flash("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.", "warning")
             return redirect(url_for("auth.set_nickname"))
 

@@ -44,19 +44,18 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("💬 채팅방 입장:", projectId);
     });
   });
-});
 
-// 프로젝트 카드 클릭 시 projectBoardModal에 projectId 설정
-document.querySelectorAll(".project-card-wrapper").forEach(wrapper => {
-  wrapper.addEventListener("click", (e) => {
-    const projectId = wrapper.dataset.projectId;
-    window.currentProjectId = projectId;
+  // ✅ 프로젝트 카드 클릭 시 projectBoardModal에 projectId 설정
+  document.querySelectorAll(".project-card-wrapper").forEach(wrapper => {
+    wrapper.addEventListener("click", (e) => {
+      const projectId = wrapper.dataset.projectId;
+      window.currentProjectId = projectId;
 
-    const modal = document.getElementById("projectBoardModal");
-    modal.dataset.projectId = projectId;
+      const modal = document.getElementById("projectBoardModal");
+      modal.dataset.projectId = projectId;
 
-    const projectName = wrapper.querySelector(".card-title")?.textContent || "프로젝트 보드";
-    document.getElementById("projectBoardTitle").textContent = projectName;
+      const projectName = wrapper.querySelector(".card-title")?.textContent || "프로젝트 보드";
+      document.getElementById("projectBoardTitle").textContent = projectName;
+    });
   });
 });
-

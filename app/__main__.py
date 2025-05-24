@@ -31,7 +31,7 @@ app.config.update(
 )
 
 # ✅ 확장 기능 초기화
-mongo.init_app(app)  # 여기서 연결함
+mongo.init_app(app)
 bcrypt = Bcrypt(app)
 mail.init_app(app)
 socketio = SocketIO(app)
@@ -69,7 +69,7 @@ def load_user(user_id):
     user_data = mongo.db.users.find_one({"_id": ObjectId(user_id)})
     return User(user_data) if user_data else None
 
-# 블루프린트 등록
+# Blueprint 등록 및 초기화
 init_auth(app)
 init_projects(app)
 init_cards(app)

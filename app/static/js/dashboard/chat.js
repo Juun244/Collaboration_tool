@@ -4,6 +4,7 @@ let activeProjectId = null;
 document.addEventListener("DOMContentLoaded", () => {
   const chatModal = document.getElementById("chatModal");
 
+  // 채팅 모달 열릴 때
   chatModal.addEventListener("show.bs.modal", function () {
     const projectId = this.dataset.projectId;
     if (!projectId) return;
@@ -12,9 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.emit("join", { project_id: projectId });
     console.log("🟢 join:", projectId);
 
-    document.getElementById("chatMessages").innerHTML = "";
+    document.getElementById("chatMessages").innerHTML = ""; // 채팅창 초기화
   });
 
+  // 채팅 모달 닫을 때
   chatModal.addEventListener("hidden.bs.modal", function () {
     if (activeProjectId) {
       socket.emit("leave", { project_id: activeProjectId });
@@ -23,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // 전송 버튼 클릭
   document.getElementById("sendChatBtn").addEventListener("click", () => {
     const message = document.getElementById("chatInput").value.trim();
     if (!message || !activeProjectId) return;
@@ -35,21 +38,26 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("chatInput").value = "";
   });
 
+  // 과거 메시지 수신
   socket.on("chat_history", (history) => {
     history.forEach(data => {
       appendChatMessage(data.user_id, data.username, data.message, data.timestamp);
     });
   });
 
+  // 실시간 메시지 수신
   socket.on("message", (data) => {
     appendChatMessage(data.user_id, data.username, data.message, data.timestamp);
   });
 
+  // 시스템 메시지 수신 (입장/퇴장 등)
   socket.on("notice", (data) => {
+    console.log("📢 시스템 메시지 수신:", data.msg);
     appendSystemMessage(data.msg);
   });
 });
 
+// 채팅 메시지 출력
 function appendChatMessage(senderId, username, message, timestamp) {
   const isMine = senderId === window.currentUser.id;
 
@@ -104,6 +112,7 @@ function appendChatMessage(senderId, username, message, timestamp) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// 시스템 메시지 출력 (입장/퇴장 알림)
 function appendSystemMessage(msg) {
   const chatMessages = document.getElementById("chatMessages");
   const div = document.createElement("div");
