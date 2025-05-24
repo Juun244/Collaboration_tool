@@ -170,12 +170,14 @@ def login():
         if not user_data:
             flash("존재하지 않는 사용자입니다.", "danger")
             return redirect(url_for("auth.login"))
-        if user_data.get("is_verified", False) and bcrypt.check_password_hash(user_data["password"], password):
-            flash("이메일 인증이 완료되지 않았습니다. 회원가입 시 받은 이메일을 확인하거나 다시 등록해주세요.", "warning")
-            return redirect(url_for("auth.resend_verification", email=username))
+
         if not bcrypt.check_password_hash(user_data["password"], password):
             flash("비밀번호가 틀렸습니다.", "danger")
             return redirect(url_for("auth.login"))
+
+        if not user_data.get("is_verified", False):
+            flash("이메일 인증이 완료되지 않았습니다. 회원가입 시 받은 이메일을 확인하거나 다시 등록해주세요.", "warning")
+            return redirect(url_for("auth.resend_verification", email=username))
 
         from app.__main__ import User
         user = User(user_data)
@@ -332,7 +334,7 @@ def set_nickname():
             flash("잘못된 접근입니다.", "danger")
             return redirect(url_for("auth.login"))
 
-        if mongo.db.users.find_one({"username": nickname}):
+        if mongo.db.users.find_one({ "username": nickname}):
             flash("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.", "warning")
             return redirect(url_for("auth.set_nickname"))
 
