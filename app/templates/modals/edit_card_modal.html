@@ -1,0 +1,28 @@
+<!-- Edit Card Modal -->
+<div class="modal fade" id="editCardModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">카드 수정</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editCardForm">
+            <input type="hidden" id="editCardId" />
+            <div class="mb-3">
+              <label class="form-label">제목</label>
+              <input type="text" class="form-control" name="title" required />
+            </div>
+            <div class="mb-3">
+              <label class="form-label">내용</label>
+              <textarea class="form-control" name="description" rows="3"></textarea>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+          <button type="button" class="btn btn-primary" id="updateCard">수정</button>
+        </div>
+      </div>
+    </div>
+  </div>
