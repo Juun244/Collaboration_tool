@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
 </head>
 <body>
+
 <!-- Sidebar -->
 <div id="sidebarMenu" class="bg-light position-fixed p-3 shadow sidebar sidebar-closed">
   <button class="btn btn-outline-dark position-fixed top-0 start-0 m-2" id="menuClose" style="z-index: 1100;">
@@ -55,35 +56,33 @@
       </div>
     </div>
 
-<div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
-  {% for project in projects %}
-  <div class="project-card-wrapper" data-project-id="{{ project._id }}">
-    <div class="card project-card h-100 position-relative">
-      <div class="card-body">
-        <h5 class="card-title">{{ project.name }}</h5>
-        <p class="card-text truncate-description">{{ project.description }}</p>
-        <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
-        <span class="member-count">{{ project.members|length }} members</span>
+    <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
+      {% for project in projects %}
+      <div class="project-card-wrapper" data-project-id="{{ project._id }}" data-owner-id="{{ project.owner }}">
+        <div class="card project-card h-100 position-relative">
+          <div class="card-body">
+            <h5 class="card-title">{{ project.name }}</h5>
+            <p class="card-text truncate-description">{{ project.description }}</p>
+            <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
+            <span class="member-count">{{ project.members|length }} members</span>
 
-        <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
-          <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
-        </button>
+            <button class="btn add-card-btn mt-2 w-100" data-status="todo" data-project-id="{{ project._id }}">
+              <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+            </button>
 
-        <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2" data-project-id="{{ project._id }}">
-          <i class="bi bi-person-plus"></i> Invite
-        </button>
+            <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2" data-project-id="{{ project._id }}">
+              <i class="bi bi-person-plus"></i> Invite
+            </button>
 
-        <!-- ✅ 새로운 Chat 버튼 추가 -->
-        <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
-                data-project-id="{{ project._id }}">
-          <i class="bi bi-chat-dots"></i> Chat
-        </button>
-
+            <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
+                    data-project-id="{{ project._id }}">
+              <i class="bi bi-chat-dots"></i> Chat
+            </button>
+          </div>
+        </div>
       </div>
+      {% endfor %}
     </div>
-  </div>
-  {% endfor %}
-</div>
   </div>
 </div>
 

@@ -25,6 +25,7 @@ def register_chat_events(socketio):
         history = []
         for msg in messages:
             history.append({
+                "user_id": msg.get("user_id", ""),  # ✅ 과거 메시지도 id 포함 (없을 수 있으니 기본값 제공)
                 "project_id": project_id,  # 명시적 포함
                 "username": msg["username"],
                 "message": msg["message"],
@@ -49,14 +50,20 @@ def register_chat_events(socketio):
             return
 
         timestamp = datetime.now()
+        user_id = str(current_user.get_id())
+
+        # ✅ 메시지 저장 (user_id 포함)
         mongo.db.chat_messages.insert_one({
             "project_id": project_id,
+            "user_id": user_id,
             "username": current_user.username,
             "message": message,
             "timestamp": timestamp
         })
 
+        # ✅ 메시지 송신 (user_id 포함)
         emit("message", {
+            "user_id": user_id,
             "project_id": project_id,  # 명시적 포함
             "username": current_user.username,
             "message": message,

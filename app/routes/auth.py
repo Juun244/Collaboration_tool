@@ -187,6 +187,7 @@ def login():
 
     return render_template("login.html")
 
+
 # 비밀번호 재설정
 @auth_bp.route("/forgot", methods=["GET", "POST"])
 def forgot_password():
