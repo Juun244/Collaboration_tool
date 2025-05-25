@@ -371,19 +371,20 @@ body {
     cursor: default;
   }
 
-  .floating-chat {
-  position: absolute;
+.floating-chat {
+  position: fixed; /* absolute 대신 fixed로 최상위 고정 */
   bottom: 20px;
   right: 20px;
   width: 300px;
   height: 400px;
   background: white;
   border: 1px solid #ccc;
+  pointer-events: auto;
   border-radius: 8px;
   display: none;
   flex-direction: column;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 2000; /* 다른 요소 위에 표시 */
+  z-index: 10000; /* 모달(1050) 및 backdrop(1040)보다 높게 */
   resize: both;
   overflow: auto;
   min-width: 200px;
@@ -397,8 +398,13 @@ body {
 }
 
 .floating-chat.minimized {
-  height: 40px; /* 헤더 높이만 유지 */
-  resize: none; /* 최소화 시 크기 조절 비활성화 */
+  height: 40px;
+  resize: none;
+}
+
+/* 모달 오버레이가 채팅창을 덮지 않도록 */
+.modal-backdrop {
+  z-index: 1040; /* 기본값 유지, floating-chat보다 낮게 */
 }
 
 .chat-header {

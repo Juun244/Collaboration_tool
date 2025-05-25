@@ -104,7 +104,11 @@ function initializeModals() {
     const projectName = card.querySelector(".card-title").textContent;
     document.getElementById("projectBoardTitle").textContent = projectName;
 
-    new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
+    new bootstrap.Modal(document.getElementById("projectBoardModal"),{
+      backdrop: 'static',
+      keyboard: false,
+      focus: false
+    }).show();
 
     loadCards();
     loadHistory(window.currentProjectId);
