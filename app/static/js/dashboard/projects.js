@@ -6,31 +6,33 @@ function initializeProjects() {
     return;
   }
 
-  // 프로젝트 삭제/나가기
-  document.querySelectorAll(".delete-project, .leave-project").forEach(button => {
-    button.addEventListener("click", async e => {
-      e.stopPropagation();
-      const projectId = button.dataset.projectId;
-      const isOwner = button.classList.contains("delete-project");
-      const action = isOwner ? "삭제" : "나가기";
-      if (confirm(`이 프로젝트를 ${action}하시겠습니까?`)) {
-        try {
-          const response = await fetch(`/projects/${projectId}`, {
-            method: "DELETE"
-          });
-          if (response.ok) {
-            alert(`프로젝트가 ${action}되었습니다.`);
-            window.location.reload();
-          } else {
-            const error = await response.json();
-            alert(error.message || `프로젝트 ${action} 실패`);
-          }
-        } catch (err) {
-          console.error(`Project ${action} error:`, err);
-          alert("오류가 발생했습니다.");
+  // ✅ 삭제/나가기 버튼 클릭 처리 (동적 바인딩)
+  document.addEventListener("click", async e => {
+    if (!e.target.classList.contains("delete-project") && !e.target.classList.contains("leave-project")) return;
+
+    e.stopPropagation();
+    const button = e.target;
+    const projectId = button.dataset.projectId;
+    const isOwner = button.classList.contains("delete-project");
+    const action = isOwner ? "삭제" : "나가기";
+
+    if (confirm(`이 프로젝트를 ${action}하시겠습니까?`)) {
+      try {
+        const response = await fetch(`/projects/${projectId}`, {
+          method: "DELETE"
+        });
+        if (response.ok) {
+          alert(`프로젝트가 ${action}되었습니다.`);
+          window.location.reload();
+        } else {
+          const error = await response.json();
+          alert(error.message || `프로젝트 ${action} 실패`);
         }
+      } catch (err) {
+        console.error(`Project ${action} error:`, err);
+        alert("오류가 발생했습니다.");
       }
-    });
+    }
   });
 
   // 프로젝트 순서 로드
@@ -113,9 +115,9 @@ function loadComments(projectId) {
     });
 }
 
+// 댓글 추가 이벤트 (전역 한 번만 바인딩)
 document.getElementById('add-comment-btn').onclick = function() {
   const content = document.getElementById('new-comment-content').value.trim();
-  // 모달 열 때 data-project-id 속성에 프로젝트 ID를 반드시 넣어줘야 함
   const projectId = document.getElementById('projectBoardModal').dataset.projectId;
   if (!content) return;
   fetch(`/projects/${projectId}/comments`, {
@@ -128,22 +130,8 @@ document.getElementById('add-comment-btn').onclick = function() {
   });
 };
 
-// 모달이 열릴 때 마다 댓글 불러오기
+// 모달 열릴 때마다 댓글 로드
 document.getElementById('projectBoardModal').addEventListener('show.bs.modal', function(event) {
   const projectId = this.dataset.projectId;
   loadComments(projectId);
-  document.getElementById('add-comment-btn').onclick = function() {
-    const content = document.getElementById('new-comment-content').value.trim();
-    if (!content) return;
-    fetch(`/projects/${projectId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content })
-    }).then(() => {
-      document.getElementById('new-comment-content').value = "";
-      loadComments(projectId);
-    });
-  };
 });
-
-

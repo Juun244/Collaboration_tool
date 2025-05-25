@@ -93,21 +93,30 @@ function initializeModals() {
     const wrapper = card.closest(".project-card-wrapper");
     if (!wrapper) return;
 
-    window.currentProjectId = wrapper.dataset.projectId;
-    if (!window.currentProjectId) {
-      console.error("Project ID not found on project-card-wrapper", card);
-      return;
-    }
+    const projectId = wrapper.dataset.projectId;
+    const ownerId = wrapper.dataset.ownerId;
+    const modal = document.getElementById("projectBoardModal");
 
-    console.log("프로젝트 보드 모달 열기, projectId:", window.currentProjectId); // 디버깅 로그
-    document.getElementById("projectBoardModal").dataset.projectId = window.currentProjectId;
+    window.currentProjectId = projectId;
+    modal.dataset.projectId = projectId;
+
+    // 삭제/나가기 버튼에 projectId 넣기
+    const deleteBtn = document.getElementById("modalDeleteBtn");
+    const leaveBtn = document.getElementById("modalLeaveBtn");
+    if (deleteBtn) deleteBtn.dataset.projectId = projectId;
+    if (leaveBtn) leaveBtn.dataset.projectId = projectId;
+
+    // 👇 소유자인지 확인해서 버튼 토글
+    const isOwner = ownerId === window.currentUser.id;
+    if (deleteBtn) deleteBtn.classList.toggle("d-none", !isOwner);
+    if (leaveBtn) leaveBtn.classList.toggle("d-none", isOwner);
+
     const projectName = card.querySelector(".card-title").textContent;
     document.getElementById("projectBoardTitle").textContent = projectName;
 
-    new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
-
+    new bootstrap.Modal(modal).show();
     loadCards();
-    loadHistory(window.currentProjectId);
+    loadHistory(projectId);
   });
 
   isModalInitialized = true;

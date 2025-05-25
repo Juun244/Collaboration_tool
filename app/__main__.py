@@ -11,7 +11,7 @@ from app.routes.auth import auth_bp, init_auth
 from app.routes.projects import projects_bp, init_projects
 from app.routes.cards import cards_bp, init_cards
 from app.routes.chat import register_chat_events
-from app import mongo
+from app import mongo  # ✅ 이제 여기에 mongo 있음
 
 # 환경 변수 로드
 load_dotenv()
@@ -31,7 +31,7 @@ app.config.update(
 )
 
 # ✅ 확장 기능 초기화
-mongo.init_app(app)  # 여기서 연결함
+mongo.init_app(app)
 bcrypt = Bcrypt(app)
 mail.init_app(app)
 socketio = SocketIO(app)

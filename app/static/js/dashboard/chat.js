@@ -35,7 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
 function makeDraggable(element, header) {
   let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
   header.onmousedown = dragMouseDown;
-
+    document.getElementById("chatMessages").innerHTML = ""; // 채팅창 초기화
+  });
   function dragMouseDown(e) {
     e.preventDefault();
     pos3 = e.clientX;
@@ -94,6 +95,17 @@ function openChat(projectId) {
     </div>
   `;
   document.body.appendChild(chatBox);
+
+  // 과거 메시지 수신
+  socket.on("chat_history", (history) => {
+    history.forEach(data => {
+      appendChatMessage(data.user_id, data.username, data.message, data.timestamp);
+    });
+  });
+
+  // 실시간 메시지 수신
+  socket.on("message", (data) => {
+    appendChatMessage(data.user_id, data.username, data.message, data.timestamp);
 
   // 채팅창 위치 조정
   const offset = chatInstances.size * 320;
@@ -169,7 +181,7 @@ function appendSystemMessage(projectId, msg) {
     return;
   }
   const div = document.createElement("div");
-  div.classList.add("text-muted");
+  div.classList.add("text-muted", "text-center", "my-2");
   div.textContent = msg;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
