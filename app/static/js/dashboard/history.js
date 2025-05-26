@@ -48,13 +48,16 @@ async function loadHistory(projectId) {
       // 상태 수정과 설명 수정 여부를 확인
       const isStatusUpdate = entry.action === "card_status_update";
       const isCardUpdate = entry.action === "card_update";
+      const isCardMove = entry.action === "card_move_in" || entry.action === "card_move_out";
       let shouldDisplay = true;
 
+      if (isCardMove) {
+        shouldDisplay = !(entry.details.from_project === entry.details.to_project);
+      }
       if (isCardUpdate) {
-        // description이 포함된 경우 표시
+        // description이 변경된 경우
         const hasDescription = entry.details.description;
-        console.log("Card update details:", entry.details, "hasDescription:", hasDescription); // 디버깅 로그
-        shouldDisplay = hasDescription; // description이 있으면 항상 표시
+        shouldDisplay = hasDescription;
       }
 
       if (shouldDisplay) {
