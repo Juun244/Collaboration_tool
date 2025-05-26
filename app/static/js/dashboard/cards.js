@@ -48,7 +48,6 @@ function initializeCards() {
         } else {
           const error = await response.json();
           console.error("카드 생성 실패:", error); // 디버깅 로그
-          alert(error.message || "카드 생성 실패");
         }
       } catch (err) {
         console.error("Create card error:", err);
