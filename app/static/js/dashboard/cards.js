@@ -23,12 +23,13 @@ function initializeCards() {
       createCardBtn.disabled = true;
 
       const formData = new FormData(createCardForm);
-      const status = formData.get("status") || "todo"; // 기본값
       const data = {
         title: formData.get("title"),
         description: formData.get("description"),
-        status: status
+        status: formData.get("status") || "todo" // 폼에서 선택한 상태 사용, 없으면 기본값 "todo"
       };
+
+      console.log("카드 생성 데이터:", data); // 디버깅 로그
 
       try {
         const response = await fetch(`/projects/${window.currentProjectId}/cards`, {
@@ -39,13 +40,14 @@ function initializeCards() {
 
         if (response.ok) {
           const newCard = await response.json();
+          console.log("카드 생성 성공:", newCard); // 디버깅 로그
           alert("카드가 생성되었습니다!");
           bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
           createCardForm.reset();
           await loadCards(); // 카드, 히스토리, 댓글 새로고침
         } else {
           const error = await response.json();
-          alert(error.message || "카드 생성 실패");
+          console.error("카드 생성 실패:", error); // 디버깅 로그
         }
       } catch (err) {
         console.error("Create card error:", err);
@@ -171,6 +173,7 @@ function createCardElement(card, isModal = false) {
   cardElement.innerHTML = `
     <div class="card-header">
       <h6 class="card-title">${card.title}</h6>
+      ${isModal ? `
       <div class="card-buttons">
         <button type="button" class="btn btn-sm btn-outline-primary edit-card-btn" data-card-id="${card.id}">
           <i class="bi bi-pencil"></i>
@@ -179,8 +182,9 @@ function createCardElement(card, isModal = false) {
           <i class="bi bi-trash"></i>
         </button>
       </div>
+      ` : ''}
     </div>
-    <p class="card-description">${card.description}</p>
+    ${isModal ? `<p class="card-description">${card.description}</p>` : ''}
     <span class="badge ${statusClass} mt-2">${statusText}</span>
   `;
 
@@ -266,28 +270,156 @@ async function handleCardDrop(e) {
   */
 
 function initializeCardButtons() {
+  // 기존 이벤트 리스너 제거
+  document.querySelectorAll(".edit-card-btn").forEach(button => {
+    button.replaceWith(button.cloneNode(true));
+  });
+  document.querySelectorAll(".delete-card-btn").forEach(button => {
+    button.replaceWith(button.cloneNode(true));
+  });
+
+  // 수정 버튼 이벤트 리스너
   document.querySelectorAll(".edit-card-btn").forEach(button => {
     button.addEventListener("click", async e => {
       e.stopPropagation();
       const cardId = button.dataset.cardId;
+      const projectId = button.closest('.project-card-wrapper')?.dataset.projectId || window.currentProjectId;
+      
+      console.log("카드 수정 버튼 클릭:", { cardId, projectId, currentProjectId: window.currentProjectId }); // 디버깅 로그
+      
+      if (!projectId) {
+        console.error("프로젝트 ID를 찾을 수 없습니다.");
+        alert("프로젝트 ID를 찾을 수 없습니다.");
+        return;
+      }
+
+      if (!cardId) {
+        console.error("카드 ID를 찾을 수 없습니다.");
+        alert("카드 ID를 찾을 수 없습니다.");
+        return;
+      }
+
       try {
-        const response = await fetch(`/projects/${window.currentProjectId}/cards/${cardId}`);
+        console.log(`카드 정보 요청: /projects/${projectId}/cards/${cardId}`); // 디버깅 로그
+        const response = await fetch(`/projects/${projectId}/cards/${cardId}`, {
+          method: "GET",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          },
+          credentials: "include"
+        });
+
+        console.log("서버 응답 상태:", response.status); // 디버깅 로그
+
         if (response.ok) {
           const card = await response.json();
+          console.log("카드 정보 로드 성공:", card); // 디버깅 로그
+          
           const form = document.getElementById("editCardForm");
-          form.querySelector("[name='title']").value = card.title;
-          form.querySelector("[name='description']").value = card.description;
-          form.querySelector("[name='status']").value = card.status;
-          document.getElementById("editCardId").value = card.id;
-          new bootstrap.Modal(document.getElementById("editCardModal")).show();
+          if (!form) {
+            console.error("editCardForm을 찾을 수 없습니다.");
+            alert("폼을 찾을 수 없습니다.");
+            return;
+          }
+
+          const titleInput = form.querySelector("[name='title']");
+          const descriptionInput = form.querySelector("[name='description']");
+          const statusInput = form.querySelector("[name='status']");
+          const cardIdInput = document.getElementById("editCardId");
+
+          if (!titleInput || !descriptionInput || !statusInput || !cardIdInput) {
+            console.error("필요한 폼 요소를 찾을 수 없습니다.");
+            alert("폼 구성 요소를 찾을 수 없습니다.");
+            return;
+          }
+
+          titleInput.value = card.title || "";
+          descriptionInput.value = card.description || "";
+          statusInput.value = card.status || "todo";
+          cardIdInput.value = card.id;
+          
+          form.dataset.projectId = projectId;
+          
+          const modal = document.getElementById("editCardModal");
+          if (!modal) {
+            console.error("editCardModal을 찾을 수 없습니다.");
+            alert("수정 모달을 찾을 수 없습니다.");
+            return;
+          }
+
+          // 기존 updateCard 버튼 이벤트 리스너 제거
+          const updateCardBtn = document.getElementById("updateCard");
+          const newUpdateCardBtn = updateCardBtn.cloneNode(true);
+          updateCardBtn.parentNode.replaceChild(newUpdateCardBtn, updateCardBtn);
+
+          // 새로운 이벤트 리스너 등록
+          newUpdateCardBtn.addEventListener("click", async () => {
+            const form = document.getElementById("editCardForm");
+            const cardId = document.getElementById("editCardId").value;
+            const projectId = form.dataset.projectId || window.currentProjectId;
+            
+            console.log("카드 수정 요청:", { cardId, projectId, currentProjectId: window.currentProjectId }); // 디버깅 로그
+            
+            if (!projectId) {
+              console.error("프로젝트 ID를 찾을 수 없습니다.");
+              alert("프로젝트 ID를 찾을 수 없습니다.");
+              return;
+            }
+
+            const formData = new FormData(form);
+            const data = {
+              title: formData.get("title"),
+              description: formData.get("description"),
+              status: formData.get("status")
+            };
+
+            try {
+              const response = await fetch(`/projects/${projectId}/cards/${cardId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+              });
+
+              if (response.ok) {
+                console.log("카드 수정 성공"); // 디버깅 로그
+                alert("카드가 수정되었습니다.");
+                bootstrap.Modal.getInstance(document.getElementById("editCardModal")).hide();
+                form.reset();
+                await loadCards(); // 카드 목록 새로고침
+                await loadHistory(projectId); // 히스토리 새로고침
+              } else {
+                const error = await response.json();
+                console.error("카드 수정 실패:", error); // 디버깅 로그
+                alert(error.message || "카드 수정 실패");
+              }
+            } catch (err) {
+              console.error("Update card error:", err);
+              alert("카드 수정 중 오류가 발생했습니다.");
+            }
+          });
+
+          new bootstrap.Modal(modal).show();
+        } else {
+          let errorMessage = "카드 정보를 불러오는 중 오류가 발생했습니다.";
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+            console.error("카드 정보 로드 실패:", errorData); // 디버깅 로그
+          } catch (parseError) {
+            console.error("응답 파싱 실패:", parseError);
+            console.error("원본 응답:", await response.text());
+          }
+          alert(errorMessage);
         }
       } catch (err) {
-        console.error("Edit card error:", err);
-        alert("카드 정보를 불러오는 중 오류가 발생했습니다.");
+        console.error("카드 정보 로드 중 예외 발생:", err);
+        alert("카드 정보를 불러오는 중 오류가 발생했습니다. 콘솔 로그를 확인해주세요.");
       }
     });
   });
 
+  // 삭제 버튼 이벤트 리스너
   document.querySelectorAll(".delete-card-btn").forEach(button => {
     button.addEventListener("click", async e => {
       e.stopPropagation();
