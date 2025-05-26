@@ -106,7 +106,7 @@ function initializeModals() {
 
     new bootstrap.Modal(document.getElementById("projectBoardModal"),{
       backdrop: 'static',
-      keyboard: false,
+      keyboard: true,
       focus: false
     }).show();
 

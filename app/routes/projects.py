@@ -132,7 +132,11 @@ def get_project(project_id):
     project = mongo.db.projects.find_one({"_id": oid})
     if project:
         logger.info(f"Retrieved project: {project_id}")
-        return jsonify({"id": str(project["_id"]), "name": project["name"]}), 200
+        return jsonify({
+            "id": str(project["_id"]),
+            "name": project["name"],
+            "owner_id": str(project["owner"]),
+        }), 200
     logger.error(f"Project not found: {project_id}")
     return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
