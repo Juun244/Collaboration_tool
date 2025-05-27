@@ -62,7 +62,12 @@ async function loadHistory(projectId) {
 
       if (shouldDisplay) {
         switch (entry.action) {
-          case "create":
+         case "update_deadline":
+           detailText = entry.details.old_deadline
+            ? `마감일 수정: ${entry.details.old_deadline} → ${entry.details.new_deadline}`
+             : `마감일 설정: ${entry.details.new_deadline}`;
+           break;
+         case "create":
             detailText = entry.details.project_name 
               ? `프로젝트 생성: ${entry.details.project_name}`
               : `알 수 없는 프로젝트 생성`;

@@ -1,5 +1,5 @@
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from pymongo.errors import PyMongoError
 from .helpers import logger, safe_object_id
 
@@ -33,12 +33,16 @@ def get_project_history(mongo, project_id, user_id):
         history_list = []
         for entry in history:
             user = mongo.db.users.find_one({"_id": entry["user_id"]})
+
+            created_local = entry["created_at"] + timedelta(hours=9)
+            timestamp = created_local.strftime("%Y-%m-%d %H:%M:%S")
+
             history_list.append({
                 "id": str(entry["_id"]),
                 "user": user["username"] if user else "Unknown",
                 "action": entry["action"],
                 "details": entry["details"],
-                "created_at": entry["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": timestamp
             })
         return history_list, {"history": history_list}, 200
     except PyMongoError as e:
