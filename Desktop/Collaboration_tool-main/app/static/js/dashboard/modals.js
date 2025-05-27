@@ -14,7 +14,8 @@ function initializeModals() {
     const formData = new FormData(form);
     const data = {
       name: formData.get("name"),
-      description: formData.get("description")
+      description: formData.get("description"),
+      deadline: formData.get("deadline")
     };
     try {
       const response = await fetch("/projects/create", {
@@ -24,7 +25,12 @@ function initializeModals() {
       });
       if (response.ok) {
         alert("프로젝트가 생성되었습니다!");
-        bootstrap.Modal.getInstance(document.getElementById("newProjectModal")).hide();
+
+        // 🔧 모달 닫기 안전 처리
+        const modalElement = document.getElementById("newProjectModal");
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modalInstance.hide();
+
         form.reset();
         window.location.reload();
       } else {
@@ -85,31 +91,97 @@ function initializeModals() {
   });
 
   // 프로젝트 보드 모달 열기
-  document.addEventListener('click', function(e) {
+  document.addEventListener('click', async function(e) {
     const card = e.target.closest('.project-card');
-    if (!card) return;
-    if (e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")) return;
+    if (!card ||
+        e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")
+    ) return;
 
-    const wrapper = card.closest(".project-card-wrapper");
-    if (!wrapper) return;
-
+    // wrapper, projectId, modal title/데이터 세팅
+    const wrapper = card.closest('.project-card-wrapper');
     window.currentProjectId = wrapper.dataset.projectId;
-    if (!window.currentProjectId) {
-      console.error("Project ID not found on project-card-wrapper", card);
-      return;
-    }
-
-    console.log("프로젝트 보드 모달 열기, projectId:", window.currentProjectId); // 디버깅 로그
     document.getElementById("projectBoardModal").dataset.projectId = window.currentProjectId;
-    const projectName = card.querySelector(".card-title").textContent;
-    document.getElementById("projectBoardTitle").textContent = projectName;
+    document.getElementById("projectBoardTitle").textContent =
+      card.querySelector(".card-title").textContent;
 
-    new bootstrap.Modal(document.getElementById("projectBoardModal")).show();
+    // modalDeadline, modalDday 세팅
+    const deadlineText = wrapper.dataset.deadline || '';
+    const ddayBadge    = wrapper.dataset.dDay       || '';
+    const dlElem = document.getElementById("modalDeadline");
+    const ddElem = document.getElementById("modalDday");
+    dlElem.textContent = deadlineText;
+    ddElem.textContent = ddayBadge;
 
+    // 모달 띄우기
+    const modalElem = document.getElementById("projectBoardModal");
+    const bsModal = new bootstrap.Modal(modalElem, { backdrop:'static', keyboard:true });
+    bsModal.show();
+
+    // 1) 히스토리 최초 로드
+    await loadHistory(window.currentProjectId);
+
+    // 2) 수정 버튼 클릭 시, 임시 date input 생성
+    const editBtn = document.getElementById("editDeadlineBtn");
+    editBtn.onclick = () => {
+      // input 요소 만들고 버튼 옆에 붙이기
+      const tmp = document.createElement('input');
+      tmp.type  = 'date';
+      tmp.value = wrapper.dataset.deadline || '';
+      tmp.style.marginLeft = '0.5rem';
+      editBtn.parentNode.insertBefore(tmp, editBtn.nextSibling);
+
+      // 포커스 & 달력 열기
+      tmp.focus();
+      if (typeof tmp.showPicker === 'function') tmp.showPicker();
+
+      // 날짜 선택 즉시 처리
+      tmp.onchange = async () => {
+        const newDate = tmp.value;
+        tmp.remove();
+
+        // API 호출
+        const res = await fetch(`/projects/${window.currentProjectId}/deadline`, {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ deadline: newDate }),
+          credentials: 'include'
+        });
+        const body = await res.json();
+        if (!res.ok) {
+          return alert(body.error || '업데이트 실패');
+        }
+
+        // 모달 텍스트 갱신
+        dlElem.textContent = newDate;
+        const diff = Math.floor((new Date(newDate) - new Date())/(1000*60*60*24));
+        ddElem.textContent = diff>0 ? `D-${diff}` : diff===0 ? 'D-Day' : `D+${Math.abs(diff)}`;
+
+        // wrapper dataset 반영
+        wrapper.dataset.deadline = newDate;
+        wrapper.dataset.dDay      = ddElem.textContent;
+
+        // 3) 즉시 히스토리 리로드
+        await loadHistory(window.currentProjectId);
+
+        // 히스토리 섹션 펼치기
+        const histList  = document.getElementById("history-list");
+        const histArrow = document.getElementById("history-arrow");
+        if (!histList.classList.contains("open")) {
+          histList.classList.add("open");
+          histArrow.classList.replace("bi-caret-right-fill","bi-caret-down-fill");
+        }
+
+        alert('마감일이 업데이트되었습니다.');
+      };
+    };
+
+    // 나머지(카드/댓글 초기화 등)
     loadCards();
-    loadHistory(window.currentProjectId);
-  });
+    await loadHistory(window.currentProjectId);
+
+  }); 
 
   isModalInitialized = true;
   console.log("모달 초기화가 완료되었습니다.");
-}
+
+};

@@ -6,8 +6,16 @@ from datetime import datetime
 from app.utils.helpers import logger, safe_object_id, handle_db_error
 from app.utils.history import log_history, get_project_history
 from pymongo.errors import PyMongoError
+from flask import render_template
+from flask import jsonify
+import os, uuid
+from werkzeug.utils import secure_filename
+from flask import current_app, url_for
+import os
+from flask import current_app
 
 projects_bp = Blueprint('projects', __name__)
+
 
 def init_projects(app):
     global mongo
@@ -41,11 +49,26 @@ def get_project_order():
 @login_required
 def create_project():
     data = request.get_json()
+
+    print("📥 수신된 deadline 원본 값:", data.get("deadline"))
+    
     if not data or "name" not in data:
         logger.error("Missing project name in request")
         return jsonify({"message": "프로젝트 이름이 필요합니다."}), 400
 
     try:
+
+        print("📦 전달된 deadline 값:", data.get("deadline"))
+
+        deadline_str = data.get("deadline")
+        deadline = None
+
+        if deadline_str:
+            try:
+                deadline = datetime.strptime(deadline_str, "%Y-%m-%d")
+            except ValueError:
+                logger.warning(f"Invalid deadline format: {deadline_str}")
+
         max_order = mongo.db.projects.find({"members": ObjectId(current_user.get_id())}).sort("order", -1).limit(1)
         max_order_doc = next(max_order, None)
         max_order_value = max_order_doc["order"] + 1 if max_order_doc else 0
@@ -53,13 +76,19 @@ def create_project():
         new_project = {
             "name": data["name"],
             "description": data.get("description", ""),
+            "deadline": deadline,
             "members": [ObjectId(current_user.get_id())],
             "owner": ObjectId(current_user.get_id()),
             "created_at": datetime.utcnow(),
             "order": max_order_value
         }
 
+        print("📦 new_project 데이터:", new_project)
+
         result = mongo.db.projects.insert_one(new_project)
+
+        return jsonify({"id": str(result.inserted_id), "name": new_project["name"]}), 201
+
         # 히스토리 기록
         log_history(
             mongo=mongo,
@@ -72,11 +101,6 @@ def create_project():
                 "username": current_user.username
             }
         )
-        logger.info(f"Created project: {result.inserted_id}")
-        return jsonify({
-            "id": str(result.inserted_id),
-            "name": new_project["name"]
-        }), 201
     except Exception as e:
         return handle_db_error(e)
 
@@ -132,7 +156,11 @@ def get_project(project_id):
     project = mongo.db.projects.find_one({"_id": oid})
     if project:
         logger.info(f"Retrieved project: {project_id}")
-        return jsonify({"id": str(project["_id"]), "name": project["name"]}), 200
+        return jsonify({
+            "id": str(project["_id"]),
+            "name": project["name"],
+            "owner_id": str(project["owner"]),
+        }), 200
     logger.error(f"Project not found: {project_id}")
     return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
@@ -292,28 +320,50 @@ def get_history(project_id):
 @projects_bp.route("/projects/<project_id>/comments", methods=["GET"])
 @login_required
 def get_comments(project_id):
-    comments = list(mongo.db.comments.find({"project_id": ObjectId(project_id)}).sort("created_at", 1))
+    comments = list(mongo.db.comments
+                    .find({"project_id": ObjectId(project_id)})
+                    .sort("created_at", 1))
     result = []
     for c in comments:
-        result.append({
+        item = {
             "_id": str(c["_id"]),
             "author_id": str(c["author_id"]),
             "author_name": c["author_name"],
             "content": c["content"],
             "created_at": c["created_at"].strftime("%Y-%m-%d %H:%M")
-        })
-    return jsonify({"comments": result})
+        }
+        if c.get("image_filename"):
+            item["image_url"] = url_for('static', filename=f"uploads/{c['image_filename']}")
+        result.append(item)
+    return jsonify({"comments": result}), 200
 
 @projects_bp.route("/projects/<project_id>/comments", methods=["POST"])
 @login_required
 def add_comment(project_id):
+    # 1) 텍스트
+    content = request.form.get("content", "").strip()
 
-    print(f"DEBUG: 댓글 등록 호출됨: {project_id}")  # ← 추가
+    # 2) 파일
+    file = request.files.get("image")
 
-    data = request.get_json()
-    content = data.get("content", "").strip()
-    if not content:
-        return jsonify({"error": "내용 필요"}), 400
+    if not content and not file:
+        return jsonify({"error": "댓글 또는 이미지를 입력하세요."}), 400
+
+    # 3) 업로드 폴더 준비
+    upload_dir = os.path.join(current_app.static_folder, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    image_filename = None
+    if file and file.filename:
+        ext = os.path.splitext(file.filename)[1]
+        # uuid로 고유 이름 생성
+        image_filename = f"{uuid.uuid4().hex}{ext}"
+        save_path = os.path.join(upload_dir, image_filename)
+        file.save(save_path)
+        
+        print("Saved comment image as:", image_filename)
+
+    # 4) DB 저장
     new_comment = {
         "project_id": ObjectId(project_id),
         "author_id": ObjectId(current_user.get_id()),
@@ -321,24 +371,67 @@ def add_comment(project_id):
         "content": content,
         "created_at": datetime.utcnow()
     }
+    if image_filename:
+        new_comment["image_filename"] = image_filename
+
     mongo.db.comments.insert_one(new_comment)
     return jsonify({"message": "ok"}), 201
 
 @projects_bp.route("/comments/<comment_id>", methods=["PUT"])
 @login_required
 def edit_comment(comment_id):
-    data = request.get_json()
-    content = data.get("content", "").strip()
+    if request.content_type.startswith("application/json"):
+        # JSON 요청
+        data = request.get_json()
+        content = data.get("content", "").strip()
+        delete_image = False
+        new_file = None
+    else:
+        # FormData 요청
+        content = request.form.get("content", "").strip()
+        delete_image = request.form.get("delete_image") == "1"
+        new_file = request.files.get("image")
+
     if not content:
         return jsonify({"error": "내용 필요"}), 400
     comment = mongo.db.comments.find_one({"_id": ObjectId(comment_id)})
     if not comment or str(comment["author_id"]) != current_user.get_id():
         return jsonify({"error": "권한 없음"}), 403
+    upload_dir = os.path.join(current_app.static_folder, "uploads")
+    # 1) 기존 이미지 삭제 요청 처리
+    if delete_image and comment.get("image_filename"):
+        old_path = os.path.join(upload_dir, comment["image_filename"])
+        if os.path.exists(old_path):
+            os.remove(old_path)
+        mongo.db.comments.update_one(
+            {"_id": ObjectId(comment_id)},
+            {"$unset": {"image_filename": ""}}
+        )
+        comment.pop("image_filename", None)
+
+    # 2) 새 이미지 업로드 처리
+    if new_file and new_file.filename:
+        # 기존 이미지도 지우기
+        if comment.get("image_filename"):
+            old_path = os.path.join(upload_dir, comment["image_filename"])
+            if os.path.exists(old_path):
+                os.remove(old_path)
+        # 새 파일 저장
+        ext = os.path.splitext(new_file.filename)[1]
+        image_filename = f"{uuid.uuid4().hex}{ext}"
+        new_file.save(os.path.join(upload_dir, image_filename))
+        mongo.db.comments.update_one(
+            {"_id": ObjectId(comment_id)},
+            {"$set": {"image_filename": image_filename}}
+        )
+
+    # 3) 텍스트 변경
     mongo.db.comments.update_one(
         {"_id": ObjectId(comment_id)},
         {"$set": {"content": content}}
     )
-    return jsonify({"message": "수정됨"})
+
+    return jsonify({"message": "수정됨"}), 200
 
 @projects_bp.route("/comments/<comment_id>", methods=["DELETE"])
 @login_required
@@ -346,5 +439,51 @@ def delete_comment(comment_id):
     comment = mongo.db.comments.find_one({"_id": ObjectId(comment_id)})
     if not comment or str(comment["author_id"]) != current_user.get_id():
         return jsonify({"error": "권한 없음"}), 403
+    if comment.get("image_filename"):
+        file_path = os.path.join(current_app.static_folder, "uploads", comment["image_filename"])
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
     mongo.db.comments.delete_one({"_id": ObjectId(comment_id)})
     return jsonify({"message": "삭제됨"})
+
+#마감일 수정
+@projects_bp.route('/projects/<project_id>/deadline', methods=['PUT'])
+@login_required
+def update_deadline(project_id):
+    data = request.get_json()
+    new_deadline = data.get('deadline')
+    if not new_deadline:
+        return jsonify({'error': 'Deadline is required.'}), 400
+    try:
+        deadline_dt = datetime.strptime(new_deadline, '%Y-%m-%d')
+    except ValueError:
+        return jsonify({'error': 'Invalid date format.'}), 400
+
+    proj = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
+    if not proj:
+        return jsonify({'error': 'Project not found.'}), 404
+    if str(proj.get('owner')) != current_user.get_id():
+        return jsonify({'error': 'Permission denied.'}), 403
+
+    # 실제 마감일 업데이트
+    mongo.db.projects.update_one(
+        {'_id': ObjectId(project_id)},
+        {'$set': {'deadline': deadline_dt}}
+    )
+
+    # ▶ 변경 히스토리 기록
+    from app.utils.history import log_history
+    log_history(
+        mongo=mongo,
+        project_id=project_id,
+        card_id=None,
+        user_id=current_user.get_id(),
+        action="update_deadline",
+        details={
+            "old_deadline": proj.get('deadline').strftime("%Y-%m-%d") if proj.get('deadline') else None,
+            "new_deadline": new_deadline
+        }
+    )
+
+    return jsonify({'success': True, 'deadline': new_deadline}), 200

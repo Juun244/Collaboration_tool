@@ -206,7 +206,7 @@ def create_card(project_id):
             "description": data.get("description", ""),
             "created_by": ObjectId(current_user.get_id()),
             "created_at": datetime.utcnow(),
-            "status": "todo",
+            "status": data.get("status", "todo"),
             "order": max_order
         }
 
@@ -218,9 +218,12 @@ def create_card(project_id):
             str(result.inserted_id),
             current_user.get_id(),
             "card_create",
-            {"title": new_card["title"]}
+            {
+                "title": new_card["title"],
+                "status": new_card["status"]
+            }
         )
-        logger.info(f"Created card: {result.inserted_id} in project {project_id}")
+        logger.info(f"Created card: {result.inserted_id} in project {project_id} with status {new_card['status']}")
         return jsonify({
             "id": str(result.inserted_id),
             "title": new_card["title"],
@@ -439,7 +442,8 @@ def update_card(project_id, card_id):
 
     update_data = {
         "title": data["title"],
-        "description": data.get("description", "")
+        "description": data.get("description", ""),
+        "status": data.get("status", card["status"])  # 상태가 제공되지 않으면 현재 상태 유지
     }
 
     # 히스토리 기록
@@ -448,6 +452,22 @@ def update_card(project_id, card_id):
         changes["title"] = {"from": card["title"], "to": data["title"]}
     if card["description"] != data.get("description", ""):
         changes["description"] = {"from": card["description"], "to": data.get("description", "")}
+    if card["status"] != update_data["status"]:
+        changes["status"] = {"from": card["status"], "to": update_data["status"]}
+        # 상태 변경 시 별도의 히스토리 기록
+        log_history(
+            mongo,
+            project_id,
+            card_id,
+            current_user.get_id(),
+            "card_status_update",
+            {
+                "from_status": card["status"],
+                "to_status": update_data["status"],
+                "title": card["title"]
+            }
+        )
+
     if changes:
         log_history(
             mongo,
@@ -464,3 +484,38 @@ def update_card(project_id, card_id):
     )
     logger.info(f"Updated card: {card_id} in project {project_id}")
     return jsonify({"message": "카드가 수정되었습니다."}), 200
+
+# 카드 정보 가져오기
+@cards_bp.route("/projects/<project_id>/cards/<card_id>", methods=["GET"])
+@login_required
+def get_card(project_id, card_id):
+    oid = safe_object_id(project_id)
+    card_oid = safe_object_id(card_id)
+    if not all([oid, card_oid]):
+        return jsonify({"message": "유효하지 않은 프로젝트 또는 카드 ID입니다."}), 400
+
+    project = mongo.db.projects.find_one({"_id": oid})
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
+
+    if ObjectId(current_user.get_id()) not in project.get("members", []):
+        logger.error(f"User {current_user.get_id()} not a member of project {project_id}")
+        return jsonify({"message": "권한이 없습니다."}), 403
+
+    card = mongo.db.cards.find_one({"_id": card_oid, "project_id": oid})
+    if not card:
+        logger.error(f"Card not found: {card_id}")
+        return jsonify({"message": "카드를 찾을 수 없습니다."}), 404
+
+    logger.info(f"Retrieved card: {card_id} from project {project_id}")
+    return jsonify({
+        "id": str(card["_id"]),
+        "title": card["title"],
+        "description": card["description"],
+        "status": card["status"],
+        "project_id": str(card["project_id"]),
+        "created_by": str(card["created_by"]),
+        "created_at": card["created_at"].isoformat(),
+        "order": card.get("order", 0)
+    }), 200

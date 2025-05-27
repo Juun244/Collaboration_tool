@@ -10,44 +10,64 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
-  async function loadHistory(projectId) {
-    try {
-      console.log(`Starting loadHistory for project: ${projectId}`);
-      const loading = document.getElementById("history-loading");
-      const historyList = document.getElementById("history-list");
-      const arrow = document.getElementById("history-arrow");
+async function loadHistory(projectId) {
+  try {
+    const loading = document.getElementById("history-loading");
+    const historyList = document.getElementById("history-list");
+    const arrow = document.getElementById("history-arrow");
 
-      loading.style.display = "block";
-      historyList.innerHTML = "";
-      historyList.classList.remove("open");
-      arrow.classList.remove("bi-caret-down-fill");
-      arrow.classList.add("bi-caret-right-fill");
+    loading.style.display = "block";
+    historyList.innerHTML = "";
+    historyList.classList.remove("open");
+    arrow.classList.remove("bi-caret-down-fill");
+    arrow.classList.add("bi-caret-right-fill");
 
-      const response = await fetch(`/history/${projectId}`, {
-        headers: { "Content-Type": "application/json" },
-        credentials: "include"
-      });
-      loading.style.display = "none";
+    const response = await fetch(`/history/${projectId}`, {
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    });
+    loading.style.display = "none";
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
+      const li = document.createElement("li");
+      li.textContent = "히스토리가 없습니다.";
+      historyList.appendChild(li);
+      return;
+    }
+
+    data.history.forEach(entry => {
+      const li = document.createElement("li");
+      let detailText = "";
+      
+      // 상태 수정과 설명 수정 여부를 확인
+      const isStatusUpdate = entry.action === "card_status_update";
+      const isCardUpdate = entry.action === "card_update";
+      const isCardMove = entry.action === "card_move_in" || entry.action === "card_move_out";
+      let shouldDisplay = true;
+
+      if (isCardMove) {
+        shouldDisplay = !(entry.details.from_project === entry.details.to_project);
+      }
+      if (isCardUpdate) {
+        // description이 변경된 경우
+        const hasDescription = entry.details.description;
+        shouldDisplay = hasDescription;
       }
 
-      const data = await response.json();
-      console.log("History data:", data);
-
-      if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
-        const li = document.createElement("li");
-        li.textContent = "히스토리가 없습니다.";
-        historyList.appendChild(li);
-        return;
-      }
-
-      data.history.forEach(entry => {
-        const li = document.createElement("li");
-        let detailText = "";
+      if (shouldDisplay) {
         switch (entry.action) {
-          case "create":
+         case "update_deadline":
+           detailText = entry.details.old_deadline
+            ? `마감일 수정: ${entry.details.old_deadline} → ${entry.details.new_deadline}`
+             : `마감일 설정: ${entry.details.new_deadline}`;
+           break;
+         case "create":
             detailText = entry.details.project_name 
               ? `프로젝트 생성: ${entry.details.project_name}`
               : `알 수 없는 프로젝트 생성`;
@@ -64,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function () {
             break;
           case "card_create":
             detailText = entry.details.title 
-              ? `카드 생성: ${entry.details.title}`
+              ? `카드 생성: ${entry.details.title}${entry.details.status ? ` (상태: ${entry.details.status})` : ''}`
               : `알 수 없는 카드 생성`;
             break;
           case "card_delete":
@@ -89,8 +109,8 @@ document.addEventListener("DOMContentLoaded", function () {
               : `알 수 없는 순서 변경`;
             break;
           case "card_update":
-            detailText = Object.keys(entry.details).length > 0 
-              ? `카드 수정: ${Object.keys(entry.details).map(key => `${key}: ${entry.details[key].from || '없음'} -> ${entry.details[key].to || '없음'}`).join(", ")}`
+            detailText = entry.details.description 
+              ? `카드 설명 수정: ${entry.details.description.from || '없음'} -> ${entry.details.description.to || '없음'}`
               : `알 수 없는 카드 수정`;
             break;
           default:
@@ -98,19 +118,22 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         li.textContent = `${entry.created_at} ${entry.user}: ${detailText}`;
         historyList.appendChild(li);
-      });
+      }
+    });
 
-      // 히스토리 있으면 자동 펼침
+    // 히스토리 있으면 자동 펼침
+    if (historyList.children.length > 0) {
       historyList.classList.add("open");
       arrow.classList.remove("bi-caret-right-fill");
       arrow.classList.add("bi-caret-down-fill");
-
-    } catch (error) {
-      console.error("Failed to load history:", error);
-      document.getElementById("history-loading").style.display = "none";
-      historyList.innerHTML = "";
-      const li = document.createElement("li");
-      li.textContent = "히스토리를 불러오는 데 실패했습니다.";
-      historyList.appendChild(li);
     }
+
+  } catch (error) {
+    console.error("Failed to load history:", error);
+    document.getElementById("history-loading").style.display = "none";
+    historyList.innerHTML = "";
+    const li = document.createElement("li");
+    li.textContent = "히스토리를 불러오는 데 실패했습니다.";
+    historyList.appendChild(li);
   }
+}
