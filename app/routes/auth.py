@@ -10,6 +10,8 @@ from bson import ObjectId
 from authlib.integrations.flask_client import OAuth
 import os
 import re
+from datetime import datetime
+from datetime import datetime, date
 
 oauth = None
 serializer = None
@@ -260,12 +262,31 @@ def logout():
 @auth_bp.route("/dashboard")
 @login_required
 def dashboard():
+
+    print("auth.py dashboard route executed")    
+    
     user_data = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
     projects = mongo.db.projects.find({"members": ObjectId(current_user.id)}).sort("order", 1)
 
     project_list = []
     for project in projects:
         project["owner"] = str(project.get("owner", None))
+        deadline = project.get("deadline", None)
+
+        if deadline and isinstance(deadline, datetime):
+            project["deadline"] = deadline.strftime("%Y-%m-%d")
+
+            today = date.today()
+            delta_days = (deadline.date() - today).days
+            if delta_days > 0:
+                project["d_day"] = f"D-{delta_days}"
+            elif delta_days == 0:
+                project["d_day"] = "D-Day"
+            else:
+                project["d_day"] = f"D+{abs(delta_days)}"
+        else:
+            project["d_day"] = None
+
         card_count = mongo.db.cards.count_documents({"project_id": project["_id"]})
         project["card_count"] = card_count
         project_list.append(project)
@@ -273,7 +294,8 @@ def dashboard():
     return render_template(
         "dashboard.html",
         user={"_id": str(current_user.id), "username": current_user.username},
-        projects=project_list
+        projects=project_list,
+        today=date.today().isoformat()
     )
 
 # 소셜 로그인 시작

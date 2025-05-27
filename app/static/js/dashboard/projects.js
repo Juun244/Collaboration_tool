@@ -116,12 +116,28 @@ function loadComments(projectId) {
       }
       list.innerHTML = "";
       data.comments.forEach(comment => {
+        const raw = comment.created_at;
+   // space나 T 구분 모두 커버하려면:
+        const utcString = raw.includes('Z') 
+          ? raw 
+          : raw.replace(' ', 'T') + 'Z';
+        const dateObj = new Date(utcString);
+
+        const formattedTime = dateObj.toLocaleString('ko-KR', {
+           dateStyle: 'short',
+           timeStyle: 'short'
+         });
         const isMine = comment.author_id === currentUser.id;
         list.innerHTML += `
           <div class="comment mb-2" data-id="${comment._id}">
             <b>${comment.author_name}</b>
-            <span style="color:gray; font-size:small;">${comment.created_at}</span><br>
+            <span style="color:gray; font-size:small;">${formattedTime}</span><br>
             <span class="comment-content">${comment.content}</span>
+            ${comment.image_url ? `
+              <div class="mt-2">
+                 <img src="${comment.image_url}" class="img-fluid" style="max-height:200px;" />
+              </div>
+            ` : ""}
             ${isMine ? `
               <button class="btn btn-sm btn-outline-secondary edit-comment-btn">수정</button>
               <button class="btn btn-sm btn-outline-danger delete-comment-btn">삭제</button>
@@ -152,6 +168,7 @@ function loadComments(projectId) {
       });
       list.querySelectorAll('.delete-comment-btn').forEach(btn => {
         btn.onclick = function() {
+          const projectId = document.getElementById('projectBoardModal').dataset.projectId;
           const commentDiv = btn.closest('.comment');
           const commentId = commentDiv.dataset.id;
           if (confirm("정말 삭제할까요?")) {
@@ -172,39 +189,58 @@ function loadComments(projectId) {
     });
 }
 
-// 댓글 추가 이벤트
+// 댓글 + 이미지 업로드 핸들러
 const addCommentBtn = document.getElementById('add-comment-btn');
 if (addCommentBtn) {
-  addCommentBtn.onclick = function() {
-    const content = document.getElementById('new-comment-content').value.trim();
-    const projectId = document.getElementById('projectBoardModal').dataset.projectId;
-    if (!content) {
-      alert("댓글 내용을 입력하세요.");
+  addCommentBtn.onclick = async function() {
+    const contentInput = document.getElementById('new-comment-content');
+    const fileInput    = document.getElementById('new-comment-image');
+    const content      = contentInput.value.trim();
+    const projectId    = document.getElementById('projectBoardModal').dataset.projectId;
+
+    if (!content && !fileInput.files.length) {
+      alert("댓글 또는 이미지를 입력하세요.");
       return;
     }
     if (!projectId) {
       alert("프로젝트 ID를 찾을 수 없습니다.");
       return;
     }
-    console.log(`Adding comment to project ID: ${projectId}`);
-    fetch(`/projects/${projectId}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
-      credentials: "include",
-    }).then(res => {
-      if (res.ok) {
-        document.getElementById('new-comment-content').value = "";
-        loadComments(projectId);
-      } else {
-        alert("댓글 추가 실패");
+
+    const formData = new FormData();
+    if (content) formData.append('content', content);
+    if (fileInput.files.length) {
+      formData.append('image', fileInput.files[0]);
+    }
+
+    console.log('FormData image:', formData.get('image')); //test용
+
+    try {
+      const res = await fetch(`/projects/${projectId}/comments`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Add comment failed:", err);
+        alert(err.error || "댓글 추가 실패");
+        return;
       }
-    }).catch(err => {
+
+      // 초기화 및 재로드
+      contentInput.value = '';
+      fileInput.value    = '';
+      loadComments(projectId);
+    } catch (err) {
       console.error("Add comment error:", err);
       alert("댓글 추가 중 오류가 발생했습니다.");
-    });
+    }
   };
 }
+
+
 
 // ✅ 모달 열릴 때 프로젝트 정보 로드 및 버튼 설정
 const projectBoardModal = document.getElementById('projectBoardModal');
