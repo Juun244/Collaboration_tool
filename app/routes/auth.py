@@ -378,10 +378,88 @@ def set_nickname():
 
     return render_template("set_nickname.html")
 
-
-
 @auth_bp.route("/check-nickname", methods=["POST"])
 def check_nickname():
     nickname = request.json.get("nickname", "").strip()
     exists = mongo.db.users.find_one({"username": nickname}) is not None
     return {"exists": exists}
+
+@auth_bp.route("/my-page", methods=["GET", "POST"])
+@login_required
+def my_page():
+    user_data = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
+
+    def render_with_message(message=None, category="info", override_nickname=None):
+        return render_template("mypage.html", user={
+            "username": override_nickname or user_data["username"],
+            "email": user_data["email"],
+            "auth_type": user_data.get("auth_type", "local")
+        }, message=message, category=category)
+
+    if request.method == "POST":
+        nickname = request.form.get("nickname", "").strip()
+        current_password = request.form.get("current_password", "").strip()
+        new_password = request.form.get("new_password", "").strip()
+        confirm_password = request.form.get("confirm_password", "").strip()
+        delete_password = request.form.get("delete_password", "").strip()
+        delete_nickname = request.form.get("delete_nickname", "").strip()
+        wants_to_delete = request.form.get("delete_account") == "1"
+
+        # 닉네임 변경
+        if nickname and nickname != user_data.get("username"):
+            if mongo.db.users.find_one({"username": nickname, "_id": {"$ne": user_data["_id"]}}):
+                return render_with_message("이미 사용 중인 닉네임입니다.", "warning", override_nickname=nickname)
+            mongo.db.users.update_one({"_id": user_data["_id"]}, {"$set": {"username": nickname}})
+            return render_with_message("닉네임이 성공적으로 변경되었습니다.", "success")
+
+        # 비밀번호 변경 (로컬만)
+        if user_data.get("auth_type", "local") == "local":
+            if current_password or new_password or confirm_password:
+                if not current_password:
+                    return render_with_message("현재 비밀번호를 입력해주세요.", "danger", override_nickname=nickname)
+                if not bcrypt.check_password_hash(user_data["password"], current_password):
+                    return render_with_message("현재 비밀번호가 일치하지 않습니다.", "danger", override_nickname=nickname)
+                if len(new_password) < 8 or not re.search(r"[!@#$%^&*(),.?\":{}|<>]", new_password):
+                    return render_with_message("새 비밀번호는 8자 이상이고 특수문자를 포함해야 합니다.", "danger", override_nickname=nickname)
+                if new_password != confirm_password:
+                    return render_with_message("새 비밀번호가 일치하지 않습니다.", "danger", override_nickname=nickname)
+
+                hashed = bcrypt.generate_password_hash(new_password).decode("utf-8")
+                mongo.db.users.update_one({"_id": user_data["_id"]}, {"$set": {"password": hashed}})
+                return render_with_message("비밀번호가 성공적으로 변경되었습니다.", "success")
+
+        # 회원 탈퇴 처리
+        if wants_to_delete:
+            if user_data.get("auth_type") == "local":
+                if not delete_password:
+                    return render_with_message("비밀번호를 입력해주세요.", "danger", override_nickname=nickname)
+                if not bcrypt.check_password_hash(user_data["password"], delete_password):
+                    return render_with_message("비밀번호가 일치하지 않습니다.", "danger", override_nickname=nickname)
+            else:
+                if not delete_nickname:
+                    return render_with_message("닉네임을 입력해주세요.", "danger", override_nickname=nickname)
+                if delete_nickname != user_data.get("username"):
+                    return render_with_message("닉네임이 일치하지 않습니다.", "danger", override_nickname=nickname)
+
+            # 내가 만든 프로젝트 삭제
+            mongo.db.projects.delete_many({"owner": user_data["_id"]})
+
+            # 초대받은 프로젝트 멤버에서 제거
+            mongo.db.projects.update_many(
+                {"members": user_data["_id"]},
+                {"$pull": {"members": user_data["_id"]}}
+            )
+
+            # 유저 삭제 및 로그아웃
+            mongo.db.users.delete_one({"_id": user_data["_id"]})
+            logout_user()
+            session.pop("user_id", None)
+            return redirect(url_for("auth.login"))
+
+        return render_with_message("변경할 내용을 입력해주세요.", "info", override_nickname=nickname)
+
+    return render_template("mypage.html", user={
+        "username": user_data["username"],
+        "email": user_data["email"],
+        "auth_type": user_data.get("auth_type", "local")
+    })

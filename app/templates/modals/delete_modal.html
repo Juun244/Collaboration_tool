@@ -1,0 +1,31 @@
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <form method="POST" action="{{ url_for('auth.my_page') }}">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title text-danger" id="deleteAccountModalLabel">정말로 계정을 삭제하시겠습니까?</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-danger">⚠️ 회원 탈퇴 시 아래 내용이 적용됩니다:</p>
+          <ul>
+            <li>내가 만든 프로젝트는 모두 삭제됩니다.</li>
+            <li>초대받은 프로젝트에서는 자동으로 나가기 처리됩니다.</li>
+          </ul>
+          {% if user.auth_type == 'local' %}
+          <p class="fw-bold">탈퇴를 원하시면 비밀번호를 입력해주세요.</p>
+          <input type="password" class="form-control" name="delete_password" placeholder="비밀번호 입력" required>
+          {% else %}
+          <p class="fw-bold">탈퇴를 원하시면 닉네임을 입력해주세요.</p>
+          <input type="text" class="form-control" name="delete_nickname" placeholder="닉네임 입력" required>
+          {% endif %}
+          <input type="hidden" name="delete_account" value="1">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+          <button type="submit" class="btn btn-danger">회원 탈퇴</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
