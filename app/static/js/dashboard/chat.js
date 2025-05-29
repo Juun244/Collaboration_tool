@@ -19,12 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", (e) => {
       e.stopPropagation();
       const projectId = button.dataset.projectId;
+      const projectName = button.dataset.projectName;
       if (!projectId) {
         console.error("projectId not found on button:", button);
         return;
       }
       console.log("Opening chat for project:", projectId);
-      openChat(projectId);
+      openChat(projectId,projectName);
     });
   });
 
@@ -143,7 +144,7 @@ function makeDraggable(element, header) {
 }
 
 // 채팅창 열기
-function openChat(projectId) {
+function openChat(projectId,projectName) {
   if (chatInstances.has(projectId)) {
     const chatBox = chatInstances.get(projectId).element;
     chatBox.classList.add("active");
@@ -170,7 +171,7 @@ function openChat(projectId) {
   chatBox.id = `floatingChat-${projectId}`;
   chatBox.innerHTML = `
     <div class="chat-header" id="chatHeader-${projectId}">
-      ${projectId} 채팅
+      ${projectName || projectId} 채팅
       <div>
         <span id="minimizeChat-${projectId}">🗕</span>
         <span id="chatClose-${projectId}">✖</span>
@@ -285,7 +286,7 @@ function openChat(projectId) {
 }
 
 // 메시지 출력
-function appendChatMessage(projectId, username, message, timestamp) {
+function appendChatMessage(projectId, nickname, message, timestamp) {
   console.log("Appending message to project:", projectId, message);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
   if (!chatMessages) {
@@ -293,7 +294,8 @@ function appendChatMessage(projectId, username, message, timestamp) {
     return;
   }
   const div = document.createElement("div");
-  div.innerHTML = `<strong>${username}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
+  const color = (nickname === window.currentUserNickname) ? "green" : "black";
+div.innerHTML = `<strong style="color:${color}">${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -324,7 +326,7 @@ socket.on("chat_history", (history) => {
   console.log("Received chat history:", history);
   history.forEach(data => {
     if (data.project_id) {
-      appendChatMessage(data.project_id, data.username, data.message, data.timestamp);
+      appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
     } else {
       console.error("project_id missing in chat_history data:", data);
     }
@@ -334,7 +336,7 @@ socket.on("chat_history", (history) => {
 socket.on("message", (data) => {
   console.log("Received message:", data);
   if (data.project_id) {
-    appendChatMessage(data.project_id, data.username, data.message, data.timestamp);
+    appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
   } else {
     console.error("project_id missing in message data:", data);
   }

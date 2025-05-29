@@ -44,7 +44,7 @@ login_manager.init_app(app)
 class User:
     def __init__(self, user_data):
         self.id = str(user_data["_id"])
-        self.username = user_data.get("username", "NoName")
+        self.nickname = user_data.get("nickname", "알수없음")
         self.invitations = user_data.get("invitations", [])
 
     def get_id(self):

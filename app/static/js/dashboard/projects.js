@@ -95,9 +95,7 @@ function initializeProjects() {
   console.log("프로젝트 초기화가 완료되었습니다.");
 }
 
-
-
-const currentUser = window.currentUser || { id: "", username: "" };
+const currentUser = window.currentUser || { id: "", nickname: "" };
 
 async function loadComments(projectId) {
   if (!projectId) {

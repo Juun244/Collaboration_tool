@@ -40,7 +40,7 @@
                 </button>
                 <a class="navbar-brand ms-5" href="#"></a>
                 <div class="navbar-nav ms-auto">
-                    <span class="nav-item nav-link text-light">Welcome, {{ user.username }}</span>
+                    <span class="nav-item nav-link text-light">Welcome, {{ user.nickname }}</span>
                     <a class="nav-item nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
                 </div>
             </div>
@@ -90,9 +90,11 @@
                         </button>
 
                         <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
-                                data-project-id="{{ project._id }}">
+                                data-project-id="{{ project._id }}"
+                                data-project-name="{{ project.name }}">
                             <i class="bi bi-chat-dots"></i> Chat
                         </button>
+
                     </div>
                 </div>
                 {% endfor %}
@@ -118,5 +120,7 @@
     <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/chat.js') }}"></script>
+    <script> window.currentUserNickname = "{{ user.nickname }}"; </script>
+
 </body>
 </html>
