@@ -1,24 +1,20 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from flask_pymongo import PyMongo
+from flask_socketio import SocketIO
 from bson import ObjectId
 from datetime import datetime
+import os, uuid
+from werkzeug.utils import secure_filename
 from app.utils.helpers import logger, safe_object_id, handle_db_error
 from app.utils.history import log_history, get_project_history
 from pymongo.errors import PyMongoError
-from flask import render_template
-from flask import jsonify
-import os, uuid
-from werkzeug.utils import secure_filename
-from flask import current_app, url_for
-import os
-from flask import current_app
 
 projects_bp = Blueprint('projects', __name__)
 
-
-def init_projects(app):
-    global mongo
+def init_projects(app, socketio_instance):
+    global mongo, socketio
+    socketio = socketio_instance
     mongo = PyMongo(app)
 
 @projects_bp.route("/projects/reorder", methods=["POST"])
@@ -57,7 +53,6 @@ def create_project():
         return jsonify({"message": "프로젝트 이름이 필요합니다."}), 400
 
     try:
-
         print("📦 전달된 deadline 값:", data.get("deadline"))
 
         deadline_str = data.get("deadline")
@@ -87,7 +82,13 @@ def create_project():
 
         result = mongo.db.projects.insert_one(new_project)
 
-        return jsonify({"id": str(result.inserted_id), "name": new_project["name"]}), 201
+        # 소켓 이벤트: 프로젝트 생성 알림 (필요 시 추가 가능)
+        socketio.emit('project_created', {
+            'project_id': str(result.inserted_id),
+            'name': new_project["name"],
+            'username': current_user.username,
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=str(result.inserted_id))
 
         # 히스토리 기록
         log_history(
@@ -101,6 +102,7 @@ def create_project():
                 "username": current_user.username
             }
         )
+        return jsonify({"id": str(result.inserted_id), "name": new_project["name"]}), 201
     except Exception as e:
         return handle_db_error(e)
 
@@ -120,6 +122,12 @@ def delete_or_leave_project(project_id):
     if project.get("owner") == user_id:
         mongo.db.projects.delete_one({"_id": oid})
         mongo.db.cards.delete_many({"project_id": oid})
+        # 소켓 이벤트: 프로젝트 삭제 알림
+        socketio.emit('project_deleted', {
+            'project_id': project_id,
+            'username': current_user.username,
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=project_id)
         logger.info(f"Deleted project: {project_id}")
         return jsonify({"message": "프로젝트가 삭제되었습니다."}), 200
     elif user_id in project.get("members", []):
@@ -127,7 +135,13 @@ def delete_or_leave_project(project_id):
             {"_id": oid},
             {"$pull": {"members": user_id}}
         )
-
+        # 소켓 이벤트: 프로젝트 나가기 알림
+        socketio.emit('invite_response', {
+            'project_id': project_id,
+            'username': current_user.username,
+            'accepted': False,
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=project_id)
         # 히스토리 기록
         log_history(
             mongo=mongo,
@@ -164,35 +178,67 @@ def get_project(project_id):
     logger.error(f"Project not found: {project_id}")
     return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
-@projects_bp.route('/projects/<project_id>/invite', methods=['POST'])
+# projects.py (invite_to_project 예시)
+@projects_bp.route("/projects/<project_id>/invite", methods=["POST"])
 @login_required
-def invite_member(project_id):
+def invite_to_project(project_id):
     data = request.get_json()
-    username = data.get('username')
+    if not data or "username" not in data:
+        logger.error("Missing username in request")
+        return jsonify({"message": "사용자 이름이 필요합니다."}), 400
+
     oid = safe_object_id(project_id)
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    user = mongo.db.users.find_one({"username": username})
     project = mongo.db.projects.find_one({"_id": oid})
-    if not user or not project:
-        logger.error(f"User {username} or project {project_id} not found")
-        return jsonify({"message": "사용자 또는 프로젝트를 찾을 수 없습니다."}), 404
+    if not project:
+        logger.error(f"Project not found: {project_id}")
+        return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
-    if ObjectId(user["_id"]) in project.get("members", []):
-        logger.error(f"User {username} already a member of project {project_id}")
+    if ObjectId(current_user.get_id()) not in project.get("members", []):
+        logger.error(f"User {current_user.get_id()} not a member of project {project_id}")
+        return jsonify({"message": "권한이 없습니다."}), 403
+
+    invitee = mongo.db.users.find_one({"username": data["username"]})
+    if not invitee:
+        logger.error(f"User not found: {data['username']}")
+        return jsonify({"message": "사용자를 찾을 수 없습니다."}), 404
+
+    invitee_id = invitee["_id"]
+    if invitee_id in project.get("members", []):
+        logger.error(f"User {data['username']} already a member of project {project_id}")
         return jsonify({"message": "이미 프로젝트 멤버입니다."}), 400
 
-    if ObjectId(project["_id"]) in user.get("invitations", []):
-        logger.error(f"User {username} already invited to project {project_id}")
-        return jsonify({"message": "이미 초대된 사용자입니다."}), 400
+    try:
+        mongo.db.users.update_one(
+            {"_id": invitee_id},
+            {"$addToSet": {"invitations": oid}}
+        )
+        log_history(
+            mongo,
+            project_id,
+            None,
+            current_user.get_id(),
+            "invite_sent",
+            {"invitee_username": data["username"]}
+        )
 
-    mongo.db.users.update_one(
-        {"_id": user["_id"]},
-        {"$push": {"invitations": project["_id"]}}
-    )
-    logger.info(f"Sent invitation to {username} for project {project_id}")
-    return jsonify({"message": "초대가 전송되었습니다."}), 200
+        # 소켓 이벤트: 프로젝트 초대
+        socketio.emit('project_invite', {
+            'project_id': project_id,
+            'project_name': project["name"],
+            'inviter': current_user.username,
+            'invitee_username': data["username"],
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=data["username"])
+
+        logger.info(f"Invited {data['username']} to project {project_id}")
+        return jsonify({"message": f"{data['username']}을(를) 프로젝트에 초대했습니다."}), 200
+
+    except PyMongoError as e:
+        logger.error(f"Database error: {str(e)}")
+        return handle_db_error(e)
 
 @projects_bp.route('/invitations', methods=['GET'])
 @login_required
@@ -228,11 +274,17 @@ def respond_invitation():
             {"_id": project_id},
             {"$addToSet": {"members": ObjectId(current_user.get_id())}}
         )
-        
+        # 소켓 이벤트: 초대 수락 알림
+        socketio.emit('invite_response', {
+            'project_id': str(project_id),
+            'username': current_user.username,
+            'accepted': True,
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=str(project_id))
         # 히스토리 기록
         log_history(
             mongo=mongo,
-            project_id=project_id,
+            project_id=str(project_id),
             card_id=None,
             user_id=current_user.get_id(),
             action="join",
@@ -243,6 +295,13 @@ def respond_invitation():
         )
         logger.info(f"User {current_user.get_id()} accepted invitation for project {project_id}")
     else:
+        # 소켓 이벤트: 초대 거절 알림
+        socketio.emit('invite_response', {
+            'project_id': str(project_id),
+            'username': current_user.username,
+            'accepted': False,
+            'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        }, room=str(project_id))
         logger.info(f"User {current_user.get_id()} declined invitation for project {project_id}")
 
     return jsonify({"message": f"{action} 처리 완료"}), 200
@@ -315,8 +374,6 @@ def get_history(project_id):
     history_list, response, status = get_project_history(mongo, project_id, current_user.get_id())
     return jsonify(response), status
 
-
-
 @projects_bp.route("/projects/<project_id>/comments", methods=["GET"])
 @login_required
 def get_comments(project_id):
@@ -356,11 +413,9 @@ def add_comment(project_id):
     image_filename = None
     if file and file.filename:
         ext = os.path.splitext(file.filename)[1]
-        # uuid로 고유 이름 생성
         image_filename = f"{uuid.uuid4().hex}{ext}"
         save_path = os.path.join(upload_dir, image_filename)
         file.save(save_path)
-        
         print("Saved comment image as:", image_filename)
 
     # 4) DB 저장
@@ -374,7 +429,15 @@ def add_comment(project_id):
     if image_filename:
         new_comment["image_filename"] = image_filename
 
-    mongo.db.comments.insert_one(new_comment)
+    result = mongo.db.comments.insert_one(new_comment)
+    # 소켓 이벤트: 댓글 작성 알림
+    socketio.emit('comment_created', {
+        'project_id': project_id,
+        'card_id': None,  # 프로젝트 댓글이므로 card_id는 None
+        'comment': content,
+        'username': current_user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=project_id)
     return jsonify({"message": "ok"}), 201
 
 @projects_bp.route("/comments/<comment_id>", methods=["PUT"])
@@ -411,12 +474,10 @@ def edit_comment(comment_id):
 
     # 2) 새 이미지 업로드 처리
     if new_file and new_file.filename:
-        # 기존 이미지도 지우기
         if comment.get("image_filename"):
             old_path = os.path.join(upload_dir, comment["image_filename"])
             if os.path.exists(old_path):
                 os.remove(old_path)
-        # 새 파일 저장
         ext = os.path.splitext(new_file.filename)[1]
         image_filename = f"{uuid.uuid4().hex}{ext}"
         new_file.save(os.path.join(upload_dir, image_filename))
@@ -430,7 +491,15 @@ def edit_comment(comment_id):
         {"_id": ObjectId(comment_id)},
         {"$set": {"content": content}}
     )
-
+    # 소켓 이벤트: 댓글 수정 알림
+    socketio.emit('comment_updated', {
+        'project_id': str(comment["project_id"]),
+        'card_id': None,  # 프로젝트 댓글이므로 card_id는 None
+        'comment_id': comment_id,
+        'new_comment': content,
+        'username': current_user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=str(comment["project_id"]))
     return jsonify({"message": "수정됨"}), 200
 
 @projects_bp.route("/comments/<comment_id>", methods=["DELETE"])
@@ -440,14 +509,21 @@ def delete_comment(comment_id):
     if not comment or str(comment["author_id"]) != current_user.get_id():
         return jsonify({"error": "권한 없음"}), 403
     if comment.get("image_filename"):
-        file_path = os.path.join(current_app.static_folder, "uploads", comment["image_filename"])
+        file_path = os.path.join(current_app.static_folder, "Uploads", comment["image_filename"])
         if os.path.exists(file_path):
             os.remove(file_path)
 
     mongo.db.comments.delete_one({"_id": ObjectId(comment_id)})
+    # 소켓 이벤트: 댓글 삭제 알림
+    socketio.emit('comment_deleted', {
+        'project_id': str(comment["project_id"]),
+        'card_id': None,  # 프로젝트 댓글이므로 card_id는 None
+        'comment_id': comment_id,
+        'username': current_user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=str(comment["project_id"]))
     return jsonify({"message": "삭제됨"})
 
-#마감일 수정
 @projects_bp.route('/projects/<project_id>/deadline', methods=['PUT'])
 @login_required
 def update_deadline(project_id):
@@ -471,9 +547,15 @@ def update_deadline(project_id):
         {'_id': ObjectId(project_id)},
         {'$set': {'deadline': deadline_dt}}
     )
-
-    # ▶ 변경 히스토리 기록
-    from app.utils.history import log_history
+    # 소켓 이벤트: 마감일 수정 알림
+    socketio.emit('due_date_updated', {
+        'project_id': project_id,
+        'card_id': None,  # 프로젝트 마감일이므로 card_id는 None
+        'new_due_date': new_deadline,
+        'username': current_user.username,
+        'timestamp': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    }, room=project_id)
+    # 히스토리 기록
     log_history(
         mongo=mongo,
         project_id=project_id,
@@ -485,5 +567,4 @@ def update_deadline(project_id):
             "new_deadline": new_deadline
         }
     )
-
     return jsonify({'success': True, 'deadline': new_deadline}), 200
