@@ -285,7 +285,7 @@ function openChat(projectId) {
 }
 
 // 메시지 출력
-function appendChatMessage(projectId, username, message, timestamp) {
+function appendChatMessage(projectId, nickname, message, timestamp) {
   console.log("Appending message to project:", projectId, message);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
   if (!chatMessages) {
@@ -293,7 +293,7 @@ function appendChatMessage(projectId, username, message, timestamp) {
     return;
   }
   const div = document.createElement("div");
-  div.innerHTML = `<strong>${username}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
+  div.innerHTML = `<strong>${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -324,7 +324,7 @@ socket.on("chat_history", (history) => {
   console.log("Received chat history:", history);
   history.forEach(data => {
     if (data.project_id) {
-      appendChatMessage(data.project_id, data.username, data.message, data.timestamp);
+      appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
     } else {
       console.error("project_id missing in chat_history data:", data);
     }
@@ -334,7 +334,7 @@ socket.on("chat_history", (history) => {
 socket.on("message", (data) => {
   console.log("Received message:", data);
   if (data.project_id) {
-    appendChatMessage(data.project_id, data.username, data.message, data.timestamp);
+    appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
   } else {
     console.error("project_id missing in message data:", data);
   }

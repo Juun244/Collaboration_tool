@@ -27,19 +27,19 @@ def register_chat_events(socketio):
             history.append({
                 "user_id": msg.get("user_id", ""),  # ✅ 과거 메시지도 id 포함 (없을 수 있으니 기본값 제공)
                 "project_id": project_id,  # 명시적 포함
-                "username": msg["username"],
+                "nickname": msg.get("nickname", "알수없음"),
                 "message": msg["message"],
                 "timestamp": msg["timestamp"].strftime("%H:%M:%S")
             })
 
         emit("chat_history", history, to=sid)
-        emit("notice", {"msg": f"{current_user.username}님이 입장하셨습니다.", "project_id": project_id}, room=project_id)
+        emit("notice", {"msg": f"{current_user.nickname}님이 입장하셨습니다.", "project_id": project_id}, room=project_id)
 
     @socketio.on("leave")
     def handle_leave(data):
         project_id = str(data.get("project_id"))
         sid = request.sid
-        emit("notice", {"msg": f"{current_user.username}님이 퇴장하셨습니다.", "project_id": project_id}, room=project_id, include_self=True)
+        emit("notice", {"msg": f"{current_user.nickname}님이 퇴장하셨습니다.", "project_id": project_id}, room=project_id, include_self=True)
         leave_room(project_id, sid=sid)
 
     @socketio.on("send_message")
@@ -56,7 +56,7 @@ def register_chat_events(socketio):
         mongo.db.chat_messages.insert_one({
             "project_id": project_id,
             "user_id": user_id,
-            "username": current_user.username,
+            "nickname": current_user.nickname,
             "message": message,
             "timestamp": timestamp
         })
@@ -65,11 +65,11 @@ def register_chat_events(socketio):
         emit("message", {
             "user_id": user_id,
             "project_id": project_id,  # 명시적 포함
-            "username": current_user.username,
+            "nickname": current_user.nickname,
             "message": message,
             "timestamp": timestamp.strftime("%H:%M:%S")
         }, room=project_id)
 
     @socketio.on("disconnect")
     def handle_disconnect():
-        print(f"🔌 {current_user.username if current_user.is_authenticated else '익명'} 연결 종료됨")
+        print(f"🔌 {current_user.nickname if current_user.is_authenticated else '익명'} 연결 종료됨")

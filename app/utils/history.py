@@ -39,7 +39,7 @@ def get_project_history(mongo, project_id, user_id):
 
             history_list.append({
                 "id": str(entry["_id"]),
-                "user": user["username"] if user else "Unknown",
+                "user": user["nickname"] if user else "Unknown",
                 "action": entry["action"],
                 "details": entry["details"],
                 "created_at": timestamp

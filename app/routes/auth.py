@@ -55,7 +55,7 @@ def home():
 @auth_bp.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        username = request.form["username"]
+        email = request.form["email"]
         nickname = request.form["nickname"].strip()
         password = request.form["password"]
         confirm_password = request.form["confirm_password"]
@@ -63,12 +63,12 @@ def register():
 
         # 이메일 유효성 검사
         email_regex = r"^[\w\.-]+@[\w\.-]+\.\w+$"
-        if not re.match(email_regex, username):
+        if not re.match(email_regex, email):
             flash("유효한 이메일 주소를 입력하세요.", "danger")
             return redirect(url_for("auth.register"))
 
         # 닉네임 중복 확인
-        if mongo.db.users.find_one({"username": nickname}):
+        if mongo.db.users.find_one({"nickname": nickname}):
             flash("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.", "warning")
             return redirect(url_for("auth.register"))
 
@@ -82,31 +82,31 @@ def register():
             return redirect(url_for("auth.register"))
 
         # 기존 이메일 중복 확인
-        if mongo.db.users.find_one({"email": username}):
-            existing_user = mongo.db.users.find_one({"email": username})
+        if mongo.db.users.find_one({"email": email}):
+            existing_user = mongo.db.users.find_one({"email": email})
             if existing_user.get("is_verified", True):
                 flash("이미 등록된 사용자입니다. 로그인을 시도해주세요.", "danger")
                 return redirect(url_for("auth.login"))
             else:
                 flash("이미 등록된 이메일입니다. 이메일 인증 후 로그인해주세요.", "warning")
-                return redirect(url_for("auth.resend_verification", email=username))
+                return redirect(url_for("auth.resend_verification", email=email))
 
         # 이메일 인증 토큰 생성
-        token = serializer.dumps(username, salt='email-confirm')
+        token = serializer.dumps(email, salt='email-confirm')
         verify_link = url_for('auth.confirm_email', token=token, _external=True)
 
         msg = Message(
             subject="회원가입 이메일 인증",
             sender=os.environ.get("MAIL_USERNAME"),
-            recipients=[username],
+            recipients=[email],
             body=f"[CollabTool] 아래 링크를 클릭해 이메일 인증을 완료해주세요:\n\n{verify_link}\n\n이 링크는 1시간 동안만 유효합니다."
         )
         mail.send(msg)
 
         # 사용자 저장
         mongo.db.users.insert_one({
-            "email": username,
-            "username": nickname,  # 닉네임을 username으로 저장
+            "email": email,
+            "nickname": nickname,
             "password": hashed_password,
             "auth_type": "local",
             "invitations": [],
@@ -164,13 +164,17 @@ def resend_verification():
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
+        email = request.form.get("email")
         password = request.form.get("password")
         remember = request.form.get("remember") == "on"
-        user_data = mongo.db.users.find_one({"email": username})
+        user_data = mongo.db.users.find_one({"email": email})
 
         if not user_data:
             flash("존재하지 않는 사용자입니다.", "danger")
+            return redirect(url_for("auth.login"))
+
+        if "password" not in user_data or not user_data["password"]:
+            flash("비밀번호가 설정되지 않은 계정입니다. 소셜 로그인을 이용해주세요.", "danger")
             return redirect(url_for("auth.login"))
 
         if not bcrypt.check_password_hash(user_data["password"], password):
@@ -179,7 +183,7 @@ def login():
 
         if not user_data.get("is_verified", False):
             flash("이메일 인증이 완료되지 않았습니다. 회원가입 시 받은 이메일을 확인하거나 다시 등록해주세요.", "warning")
-            return redirect(url_for("auth.resend_verification", email=username))
+            return redirect(url_for("auth.resend_verification", email=email))
 
         from app.__main__ import User
         user = User(user_data)
@@ -195,7 +199,7 @@ def login():
 def forgot_password():
     if request.method == "POST":
         email = request.form.get("email")
-        user = mongo.db.users.find_one({"username": email})
+        user = mongo.db.users.find_one({"email": email})
         if not user:
             flash("등록되지 않은 이메일입니다.", "danger")
             return redirect(url_for("auth.forgot_password"))
@@ -263,8 +267,8 @@ def logout():
 @login_required
 def dashboard():
 
-    print("auth.py dashboard route executed")    
-    
+    print("auth.py dashboard route executed")
+
     user_data = mongo.db.users.find_one({"_id": ObjectId(current_user.id)})
     projects = mongo.db.projects.find({"members": ObjectId(current_user.id)}).sort("order", 1)
 
@@ -293,7 +297,7 @@ def dashboard():
 
     return render_template(
         "dashboard.html",
-        user={"_id": str(current_user.id), "username": current_user.username},
+        user={"_id": str(current_user.id), "nickname": current_user.nickname},
         projects=project_list,
         today=date.today().isoformat()
     )
@@ -320,18 +324,18 @@ def oauth_callback(provider):
     user_info = resp.json()
 
     if provider == "google":
-        username = user_info.get("email")
+        email = user_info.get("email")
     elif provider == "kakao":
         kakao_id = str(user_info.get("id"))
         kakao_account = user_info.get("kakao_account", {})
         profile = kakao_account.get("profile", {})
         nickname = profile.get("nickname", "KakaoUser")
-        username = f"{nickname}_{kakao_id}"
+        email = f"{nickname}_{kakao_id}"
 
-    user_data = mongo.db.users.find_one({"email": username})
+    user_data = mongo.db.users.find_one({"email": email})
     if not user_data:
         session["temp_user_info"] = {
-            "email": username,
+            "email": email,
             "auth_type": provider
         }
         return redirect(url_for("auth.set_nickname"))
@@ -357,14 +361,14 @@ def set_nickname():
             flash("잘못된 접근입니다.", "danger")
             return redirect(url_for("auth.login"))
 
-        if mongo.db.users.find_one({"username": nickname}):
+        if mongo.db.users.find_one({"nickname": nickname}):
             flash("이미 사용 중인 닉네임입니다. 다른 닉네임을 입력해주세요.", "warning")
             return redirect(url_for("auth.set_nickname"))
 
         # ✅ 중복이 아닐 경우, 새 유저 생성 및 로그인
         new_user = {
             "email": info["email"],
-            "username": nickname,
+            "nickname": nickname,
             "auth_type": info["auth_type"],
             "invitations": []
         }
@@ -381,7 +385,7 @@ def set_nickname():
 @auth_bp.route("/check-nickname", methods=["POST"])
 def check_nickname():
     nickname = request.json.get("nickname", "").strip()
-    exists = mongo.db.users.find_one({"username": nickname}) is not None
+    exists = mongo.db.users.find_one({"nickname": nickname}) is not None
     return {"exists": exists}
 
 @auth_bp.route("/my-page", methods=["GET", "POST"])
@@ -391,7 +395,7 @@ def my_page():
 
     def render_with_message(message=None, category="info", override_nickname=None):
         return render_template("mypage.html", user={
-            "username": override_nickname or user_data["username"],
+            "nickname": override_nickname or user_data["nickname"],
             "email": user_data["email"],
             "auth_type": user_data.get("auth_type", "local")
         }, message=message, category=category)
@@ -406,10 +410,10 @@ def my_page():
         wants_to_delete = request.form.get("delete_account") == "1"
 
         # 닉네임 변경
-        if nickname and nickname != user_data.get("username"):
-            if mongo.db.users.find_one({"username": nickname, "_id": {"$ne": user_data["_id"]}}):
+        if nickname and nickname != user_data.get("nickname"):
+            if mongo.db.users.find_one({"nickname": nickname, "_id": {"$ne": user_data["_id"]}}):
                 return render_with_message("이미 사용 중인 닉네임입니다.", "warning", override_nickname=nickname)
-            mongo.db.users.update_one({"_id": user_data["_id"]}, {"$set": {"username": nickname}})
+            mongo.db.users.update_one({"_id": user_data["_id"]}, {"$set": {"nickname": nickname}})
             return render_with_message("닉네임이 성공적으로 변경되었습니다.", "success")
 
         # 비밀번호 변경 (로컬만)
@@ -438,7 +442,7 @@ def my_page():
             else:
                 if not delete_nickname:
                     return render_with_message("닉네임을 입력해주세요.", "danger", override_nickname=nickname)
-                if delete_nickname != user_data.get("username"):
+                if delete_nickname != user_data.get("nickname"):
                     return render_with_message("닉네임이 일치하지 않습니다.", "danger", override_nickname=nickname)
 
             # 내가 만든 프로젝트 삭제
@@ -459,7 +463,7 @@ def my_page():
         return render_with_message("변경할 내용을 입력해주세요.", "info", override_nickname=nickname)
 
     return render_template("mypage.html", user={
-        "username": user_data["username"],
+        "nickname": user_data["nickname"],
         "email": user_data["email"],
         "auth_type": user_data.get("auth_type", "local")
     })

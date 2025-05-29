@@ -44,8 +44,7 @@ async function loadHistory(projectId) {
     data.history.forEach(entry => {
       const li = document.createElement("li");
       let detailText = "";
-      
-      // 상태 수정과 설명 수정 여부를 확인
+
       const isStatusUpdate = entry.action === "card_status_update";
       const isCardUpdate = entry.action === "card_update";
       const isCardMove = entry.action === "card_move_in" || entry.action === "card_move_out";
@@ -55,73 +54,73 @@ async function loadHistory(projectId) {
         shouldDisplay = !(entry.details.from_project === entry.details.to_project);
       }
       if (isCardUpdate) {
-        // description이 변경된 경우
         const hasDescription = entry.details.description;
         shouldDisplay = hasDescription;
       }
 
       if (shouldDisplay) {
         switch (entry.action) {
-         case "update_deadline":
-           detailText = entry.details.old_deadline
-            ? `마감일 수정: ${entry.details.old_deadline} → ${entry.details.new_deadline}`
-             : `마감일 설정: ${entry.details.new_deadline}`;
-           break;
-         case "create":
-            detailText = entry.details.project_name 
+          case "update_deadline":
+            detailText = entry.details.old_deadline
+              ? `마감일 수정: ${entry.details.old_deadline} → ${entry.details.new_deadline}`
+              : `마감일 설정: ${entry.details.new_deadline}`;
+            break;
+          case "create":
+            detailText = entry.details.project_name
               ? `프로젝트 생성: ${entry.details.project_name}`
               : `알 수 없는 프로젝트 생성`;
             break;
           case "join":
-            detailText = entry.details.project_name 
+            detailText = entry.details.project_name
               ? `프로젝트 참여: ${entry.details.project_name}`
               : `알 수 없는 프로젝트 참여`;
             break;
           case "leave":
-            detailText = entry.details.project_name 
+            detailText = entry.details.project_name
               ? `프로젝트 떠남: ${entry.details.project_name}`
               : `알 수 없는 프로젝트 떠남`;
             break;
           case "card_create":
-            detailText = entry.details.title 
+            detailText = entry.details.title
               ? `카드 생성: ${entry.details.title}${entry.details.status ? ` (상태: ${entry.details.status})` : ''}`
               : `알 수 없는 카드 생성`;
             break;
           case "card_delete":
-            detailText = entry.details.title 
+            detailText = entry.details.title
               ? `카드 삭제: ${entry.details.title}`
               : `알 수 없는 카드 삭제`;
             break;
           case "card_move_in":
           case "card_move_out":
-            detailText = entry.details.title 
+            detailText = entry.details.title
               ? `카드 이동: ${entry.details.title}, ${entry.details.from_project || '알 수 없음'} -> ${entry.details.to_project || '알 수 없음'}`
               : `알 수 없는 카드 이동`;
             break;
           case "card_status_update":
-            detailText = entry.details.title 
+            detailText = entry.details.title
               ? `상태 변경: ${entry.details.from_status || '없음'} -> ${entry.details.to_status || '없음'} (${entry.details.title})`
               : `알 수 없는 상태 변경`;
             break;
           case "card_reorder":
-            detailText = entry.details.title 
+            detailText = entry.details.title
               ? `카드 순서 변경: ${entry.details.title} (새 순서: ${entry.details.new_order || '알 수 없음'})`
               : `알 수 없는 순서 변경`;
             break;
           case "card_update":
-            detailText = entry.details.description 
+            detailText = entry.details.description
               ? `카드 설명 수정: ${entry.details.description.from || '없음'} -> ${entry.details.description.to || '없음'}`
               : `알 수 없는 카드 수정`;
             break;
           default:
             detailText = `알 수 없는 작업: ${JSON.stringify(entry.details)}`;
         }
-        li.textContent = `${entry.created_at} ${entry.user}: ${detailText}`;
+
+        const userLabel = entry.nickname || entry.user || "알 수 없음"; // ✅ 이 부분이 핵심
+        li.textContent = `${entry.created_at} ${userLabel}: ${detailText}`;
         historyList.appendChild(li);
       }
     });
 
-    // 히스토리 있으면 자동 펼침
     if (historyList.children.length > 0) {
       historyList.classList.add("open");
       arrow.classList.remove("bi-caret-right-fill");
