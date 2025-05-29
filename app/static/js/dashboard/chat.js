@@ -19,12 +19,13 @@ document.addEventListener("DOMContentLoaded", () => {
     button.addEventListener("click", (e) => {
       e.stopPropagation();
       const projectId = button.dataset.projectId;
+      const projectName = button.dataset.projectName;
       if (!projectId) {
         console.error("projectId not found on button:", button);
         return;
       }
       console.log("Opening chat for project:", projectId);
-      openChat(projectId);
+      openChat(projectId,projectName);
     });
   });
 
@@ -143,7 +144,7 @@ function makeDraggable(element, header) {
 }
 
 // 채팅창 열기
-function openChat(projectId) {
+function openChat(projectId,projectName) {
   if (chatInstances.has(projectId)) {
     const chatBox = chatInstances.get(projectId).element;
     chatBox.classList.add("active");
@@ -170,7 +171,7 @@ function openChat(projectId) {
   chatBox.id = `floatingChat-${projectId}`;
   chatBox.innerHTML = `
     <div class="chat-header" id="chatHeader-${projectId}">
-      ${projectId} 채팅
+      ${projectName || projectId} 채팅
       <div>
         <span id="minimizeChat-${projectId}">🗕</span>
         <span id="chatClose-${projectId}">✖</span>
@@ -293,7 +294,8 @@ function appendChatMessage(projectId, nickname, message, timestamp) {
     return;
   }
   const div = document.createElement("div");
-  div.innerHTML = `<strong>${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
+  const color = (nickname === window.currentUserNickname) ? "green" : "black";
+div.innerHTML = `<strong style="color:${color}">${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
