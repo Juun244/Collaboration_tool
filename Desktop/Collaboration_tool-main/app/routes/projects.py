@@ -98,7 +98,7 @@ def create_project():
             action="create",
             details={
                 "project_name": new_project["name"],
-                "username": current_user.username
+                "nickname": current_user.nickname
             }
         )
     except Exception as e:
@@ -137,7 +137,7 @@ def delete_or_leave_project(project_id):
             action="leave",
             details={
                 "project_name": project["name"],
-                "username": current_user.username
+                "nickname": current_user.nickname
             }
         )
         logger.info(f"User {user_id} left project: {project_id}")
@@ -168,30 +168,30 @@ def get_project(project_id):
 @login_required
 def invite_member(project_id):
     data = request.get_json()
-    username = data.get('username')
+    nickname = data.get('nickname')
     oid = safe_object_id(project_id)
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    user = mongo.db.users.find_one({"username": username})
+    user = mongo.db.users.find_one({"nickname": nickname})
     project = mongo.db.projects.find_one({"_id": oid})
     if not user or not project:
-        logger.error(f"User {username} or project {project_id} not found")
+        logger.error(f"User {nickname} or project {project_id} not found")
         return jsonify({"message": "사용자 또는 프로젝트를 찾을 수 없습니다."}), 404
 
     if ObjectId(user["_id"]) in project.get("members", []):
-        logger.error(f"User {username} already a member of project {project_id}")
+        logger.error(f"User {nickname} already a member of project {project_id}")
         return jsonify({"message": "이미 프로젝트 멤버입니다."}), 400
 
     if ObjectId(project["_id"]) in user.get("invitations", []):
-        logger.error(f"User {username} already invited to project {project_id}")
+        logger.error(f"User {nickname} already invited to project {project_id}")
         return jsonify({"message": "이미 초대된 사용자입니다."}), 400
 
     mongo.db.users.update_one(
         {"_id": user["_id"]},
         {"$push": {"invitations": project["_id"]}}
     )
-    logger.info(f"Sent invitation to {username} for project {project_id}")
+    logger.info(f"Sent invitation to {nickname} for project {project_id}")
     return jsonify({"message": "초대가 전송되었습니다."}), 200
 
 @projects_bp.route('/invitations', methods=['GET'])
@@ -228,7 +228,7 @@ def respond_invitation():
             {"_id": project_id},
             {"$addToSet": {"members": ObjectId(current_user.get_id())}}
         )
-        
+
         # 히스토리 기록
         log_history(
             mongo=mongo,
@@ -238,7 +238,7 @@ def respond_invitation():
             action="join",
             details={
                 "project_name": project["name"],
-                "username": current_user.username
+                "nickname": current_user.nickname
             }
         )
         logger.info(f"User {current_user.get_id()} accepted invitation for project {project_id}")
@@ -360,14 +360,14 @@ def add_comment(project_id):
         image_filename = f"{uuid.uuid4().hex}{ext}"
         save_path = os.path.join(upload_dir, image_filename)
         file.save(save_path)
-        
+
         print("Saved comment image as:", image_filename)
 
     # 4) DB 저장
     new_comment = {
         "project_id": ObjectId(project_id),
         "author_id": ObjectId(current_user.get_id()),
-        "author_name": current_user.username,
+        "author_name": current_user.nickname,
         "content": content,
         "created_at": datetime.utcnow()
     }
