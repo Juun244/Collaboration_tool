@@ -2,7 +2,7 @@
 <script>
 window.currentUser = {
   id: "{{ current_user.get_id() }}",
-  username: "{{ current_user.username }}"
+  nickname: "{{ current_user.nickname }}"
 };
 </script>
 
@@ -14,25 +14,24 @@ window.currentUser = {
       <div class="modal-header">
         <h5 class="modal-title" id="projectBoardTitle">프로젝트 보드</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-     </div>
-     <div class="modal-body">
-      <div class="d-flex align-items-center px-4 mb-3">
-        <strong class="me-2">마감일:</strong>
-        <span id="modalDeadline" class="text-muted me-3"></span>
-        <span id="modalDday" class="badge bg-warning text-dark"></span>
-        <!-- 수정 버튼만 남깁니다 -->
-        <button id="editDeadlineBtn" class="btn btn-sm btn-outline-secondary ms-2">
-         <i class="bi bi-pencil"></i>
-        </button>
       </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center px-4 mb-3">
+          <strong class="me-2">마감일:</strong>
+          <span id="modalDeadline" class="text-muted me-3"></span>
+          <span id="modalDday" class="badge bg-warning text-dark"></span>
+          <button id="editDeadlineBtn" class="btn btn-sm btn-outline-secondary ms-2">
+            <i class="bi bi-pencil"></i>
+          </button>
+        </div>
+
         <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
           <i class="bi bi-arrow-left"></i> Back to All Projects
         </button>
+
         <div class="kanban-board">
-          <!-- 단일 카드 컨테이너 -->
           <div class="card-container mb-4"></div>
 
-          <!-- 히스토리 섹션 -->
           <div id="history-section">
             <h3 id="history-toggle" style="cursor: pointer;">
               <i id="history-arrow" class="bi bi-caret-right-fill me-1"></i> 히스토리
@@ -40,24 +39,26 @@ window.currentUser = {
             <div id="history-loading" style="display: none;">로딩 중...</div>
             <ul id="history-list"></ul>
           </div>
-          <!-- 댓글 섹션 -->
+
           <div class="comment-section mt-5">
-             <h4>댓글</h4>
-             <div id="comment-list"></div>
-             <div class="comment-input mt-3 d-flex align-items-start">
-                <textarea id="new-comment-content"
-                    class="form-control me-2"
-                    rows="2"
-                    placeholder="댓글을 입력하세요"></textarea>
-                <input type="file"
-                       id="new-comment-image"
-                       accept="image/*"
-                       class="form-control form-control-sm me-2"
-                       style="width:auto;" />
-                 <button id="add-comment-btn" class="btn btn-primary">등록</button>
-              </div>
-           </div>
-      <!-- ✅ 삭제/나가기 버튼 추가된 모달 푸터 -->
+            <h4>댓글</h4>
+            <div id="comment-list"></div>
+            <div class="comment-input mt-3 d-flex align-items-start">
+              <textarea id="new-comment-content"
+                        class="form-control me-2"
+                        rows="2"
+                        placeholder="댓글을 입력하세요"></textarea>
+              <input type="file"
+                     id="new-comment-image"
+                     accept="image/*"
+                     class="form-control form-control-sm me-2"
+                     style="width:auto;" />
+              <button id="add-comment-btn" class="btn btn-primary">등록</button>
+            </div>
+          </div>
+        </div>
+      </div> <!-- .modal-body 닫힘 -->
+
       <div class="modal-footer d-flex justify-content-between">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
         <button id="modalDeleteBtn" class="btn btn-danger delete-project" data-project-id="">
@@ -67,6 +68,6 @@ window.currentUser = {
           <i class="bi bi-box-arrow-left"></i> 나가기
         </button>
       </div>
-    </div>
-  </div>
-</div>
+    </div> <!-- .modal-content -->
+  </div> <!-- .modal-dialog -->
+</div> <!-- #projectBoardModal -->

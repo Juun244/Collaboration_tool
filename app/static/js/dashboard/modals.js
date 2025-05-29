@@ -49,7 +49,7 @@ function initializeModals() {
     const formData = new FormData(form);
     const projectId = document.getElementById("inviteProjectId").value;
     const data = {
-      username: formData.get("username")
+      nickname: formData.get("nickname")
     };
     try {
       const response = await fetch(`/projects/${projectId}/invite`, {
