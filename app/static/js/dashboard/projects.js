@@ -95,99 +95,208 @@ function initializeProjects() {
   console.log("프로젝트 초기화가 완료되었습니다.");
 }
 
+
+
 const currentUser = window.currentUser || { id: "", username: "" };
 
-function loadComments(projectId) {
+async function loadComments(projectId) {
   if (!projectId) {
     console.error("Project ID is missing for loading comments.");
     return;
   }
-  console.log(`Loading comments for project ID: ${projectId}`);
-  fetch(`/projects/${projectId}/comments`, { credentials: "include" })
-    .then(res => {
-      if (!res.ok) throw new Error(`Failed to load comments: ${res.status}`);
-      return res.json();
-    })
-    .then(data => {
-      const list = document.getElementById("comment-list");
-      if (!list) {
-        console.error("Comment list element not found.");
-        return;
-      }
-      list.innerHTML = "";
-      data.comments.forEach(comment => {
-        const raw = comment.created_at;
-   // space나 T 구분 모두 커버하려면:
-        const utcString = raw.includes('Z') 
-          ? raw 
-          : raw.replace(' ', 'T') + 'Z';
-        const dateObj = new Date(utcString);
+  try {
+    const res = await fetch(`/projects/${projectId}/comments`, { credentials: "include" });
+    if (!res.ok) throw new Error(`Failed to load comments: ${res.status}`);
+    const data = await res.json();
 
-        const formattedTime = dateObj.toLocaleString('ko-KR', {
-           dateStyle: 'short',
-           timeStyle: 'short'
-         });
-        const isMine = comment.author_id === currentUser.id;
-        list.innerHTML += `
-          <div class="comment mb-2" data-id="${comment._id}">
-            <b>${comment.author_name}</b>
-            <span style="color:gray; font-size:small;">${formattedTime}</span><br>
-            <span class="comment-content">${comment.content}</span>
-            ${comment.image_url ? `
-              <div class="mt-2">
-                 <img src="${comment.image_url}" class="img-fluid" style="max-height:200px;" />
-              </div>
-            ` : ""}
-            ${isMine ? `
-              <button class="btn btn-sm btn-outline-secondary edit-comment-btn">수정</button>
-              <button class="btn btn-sm btn-outline-danger delete-comment-btn">삭제</button>
-            ` : ""}
-          </div>
-        `;
-      });
+    const list = document.getElementById("comment-list");
+    if (!list) throw new Error("Comment list element not found.");
+    list.innerHTML = "";
 
-      list.querySelectorAll('.edit-comment-btn').forEach(btn => {
-        btn.onclick = function() {
-          const commentDiv = btn.closest('.comment');
-          const commentId = commentDiv.dataset.id;
-          const contentSpan = commentDiv.querySelector('.comment-content');
-          const oldContent = contentSpan.textContent;
-          const newContent = prompt("댓글 수정", oldContent);
-          if (newContent && newContent !== oldContent) {
-            fetch(`/comments/${commentId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content: newContent }),
-              credentials: "include",
-            }).then(res => {
-              if (res.ok) loadComments(projectId);
-              else alert("댓글 수정 실패");
-            });
-          }
-        };
+    data.comments.forEach(comment => {
+      const raw = comment.created_at;
+      const utcString = raw.includes('Z') ? raw : raw.replace(' ', 'T') + 'Z';
+      const dateObj = new Date(utcString);
+      const formattedTime = dateObj.toLocaleString('ko-KR', {
+        dateStyle: 'short',
+        timeStyle: 'short'
       });
-      list.querySelectorAll('.delete-comment-btn').forEach(btn => {
-        btn.onclick = function() {
-          const projectId = document.getElementById('projectBoardModal').dataset.projectId;
-          const commentDiv = btn.closest('.comment');
-          const commentId = commentDiv.dataset.id;
-          if (confirm("정말 삭제할까요?")) {
-            fetch(`/comments/${commentId}`, {
-              method: "DELETE",
-              credentials: "include",
-            }).then(res => {
-              if (res.ok) loadComments(projectId);
-              else alert("댓글 삭제 실패");
-            });
-          }
-        };
-      });
-    })
-    .catch(err => {
-      console.error("Load comments error:", err);
-      alert("댓글을 불러오는 데 실패했습니다.");
+      const isMine = comment.author_id === currentUser.id;
+      list.innerHTML += `
+        <div class="comment mb-2" data-id="${comment._id}">
+          <b>${comment.author_name}</b>
+          <span style="color:gray; font-size:small;">${formattedTime}</span><br>
+          <span class="comment-content">${comment.content}</span>
+          ${comment.image_url ? `
+            <div class="mt-2">
+               <img src="${comment.image_url}" class="img-fluid" style="max-height:200px;" />
+            </div>` : ""}
+          ${isMine ? `
+            <button class="btn btn-sm btn-outline-secondary edit-comment-btn">수정</button>
+            <button class="btn btn-sm btn-outline-danger delete-comment-btn">삭제</button>
+          ` : ""}
+        </div>`;
     });
+  } catch (err) {
+    console.error("Load comments error:", err);
+    alert("댓글을 불러오는 데 실패했습니다.");
+  }
 }
+
+// ---------------------------------------------------
+// ▶ 이벤트 위임: 댓글 리스트에 단 한 번만 붙입니다
+// ---------------------------------------------------
+document.getElementById('comment-list')?.addEventListener('click', async e => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const commentDiv = btn.closest('.comment');
+  const commentId = commentDiv.dataset.id;
+  const projectId = document.getElementById('projectBoardModal').dataset.projectId;
+
+  // 1) 수정 시작
+  if (btn.classList.contains('edit-comment-btn')) {
+    startInlineEdit(commentDiv);
+
+  // 2) 저장
+  } else if (btn.classList.contains('save-comment-btn')) {
+    await saveInlineEdit(commentDiv, projectId);
+
+  // 3) 취소
+  } else if (btn.classList.contains('cancel-comment-btn')) {
+    cancelInlineEdit(commentDiv);
+
+  // 4) 삭제
+  } else if (btn.classList.contains('delete-comment-btn')) {
+    if (confirm("정말 삭제할까요?")) {
+      await deleteComment(commentId, projectId);
+    }
+  }
+});
+
+// ---------------------------------------------------
+// ▶ 인라인 편집 헬퍼 함수들
+// ---------------------------------------------------
+function startInlineEdit(div) {
+  if (div.querySelector('textarea')) return;
+  const span = div.querySelector('.comment-content');
+  const origImg = div.querySelector('img');
+  span.style.display = 'none';
+
+  // textarea
+  const textarea = document.createElement('textarea');
+  textarea.className = 'form-control mb-2';
+  textarea.value = span.textContent;
+  textarea.rows = 2;
+  div.appendChild(textarea);
+
+  // 이미지 업로드 input & 삭제 체크박스
+  let fileInput, removeCheckbox, removeLabel;
+  if (origImg) {
+    origImg.style.display = 'none';
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.className = 'form-control form-control-sm mb-2';
+    div.appendChild(fileInput);
+
+    removeCheckbox = document.createElement('input');
+    removeCheckbox.type = 'checkbox';
+    removeCheckbox.id = `rm-img-${div.dataset.id}`;
+    removeCheckbox.className = 'form-check-input me-1';
+    removeLabel = document.createElement('label');
+    removeLabel.htmlFor = removeCheckbox.id;
+    removeLabel.textContent = '이미지 삭제';
+    removeLabel.className = 'form-check-label mb-2';
+    const rmContainer = document.createElement('div');
+    rmContainer.className = 'form-check mb-2';
+    rmContainer.append(removeCheckbox, removeLabel);
+    div.appendChild(rmContainer);
+ }
+
+  // 저장/취소 버튼
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn-sm btn-primary me-1 save-comment-btn';
+  saveBtn.textContent = '저장';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'btn btn-sm btn-secondary cancel-comment-btn';
+  cancelBtn.textContent = '취소';
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'mb-2';
+  btnGroup.append(saveBtn, cancelBtn);
+  div.appendChild(btnGroup);
+}
+
+async function saveInlineEdit(div, projectId) {
+  const textarea = div.querySelector('textarea');
+  const newText = textarea.value.trim();
+  if (!newText) return alert('댓글 내용을 입력하세요.');
+
+  const origImg = div.querySelector('img');
+  const fileInput = div.querySelector('input[type=file]');
+  const removeCheckbox = div.querySelector('.form-check-input');
+
+  let res;
+  if ((fileInput && fileInput.files.length) || (removeCheckbox && removeCheckbox.checked)) {
+    const formData = new FormData();
+    formData.append('content', newText);
+    if (fileInput.files.length) formData.append('image', fileInput.files[0]);
+    if (removeCheckbox.checked) formData.append('delete_image', '1');
+    res = await fetch(`/comments/${div.dataset.id}`, {
+      method: 'PUT',
+      body: formData,
+      credentials: 'include'
+    });
+  } else {
+    res = await fetch(`/comments/${div.dataset.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: newText }),
+      credentials: 'include'
+    });
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    return alert(err.error || '수정 실패');
+  }
+
+  // UI 업데이트
+  div.querySelector('.comment-content').textContent = newText;
+  if (origImg) {
+    if (removeCheckbox && removeCheckbox.checked) {
+      origImg.remove();
+    } else if (fileInput && fileInput.files.length) {
+      origImg.src = URL.createObjectURL(fileInput.files[0]);
+    }
+    origImg.style.display = '';
+  }
+  cancelInlineEdit(div);
+}
+
+function cancelInlineEdit(div) {
+  div.querySelectorAll(
+    'textarea, .form-check, .save-comment-btn, .cancel-comment-btn, input[type=file]'
+  ).forEach(el => el.remove());
+
+  // 텍스트 원상 복구
+  div.querySelector('.comment-content').style.display = '';
+
+  // 이미지가 있었다면 숨김 해제
+  const img = div.querySelector('img');
+  if (img) {
+    img.style.display = '';
+  }
+}
+
+async function deleteComment(commentId, projectId) {
+  await fetch(`/comments/${commentId}`, { method: 'DELETE', credentials: 'include' });
+  loadComments(projectId);
+}
+
+// ---------------------------------------------------
+// ▶ 초기화
+// ---------------------------------------------------
+initializeProjects();
 
 // 댓글 + 이미지 업로드 핸들러
 const addCommentBtn = document.getElementById('add-comment-btn');
