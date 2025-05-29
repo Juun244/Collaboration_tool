@@ -1,0 +1,19 @@
+<div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable" style="max-width: 1200px;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="chatModalLabel">채팅방</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <div id="chatMessages" style="height: 700px; overflow-y: auto; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">
+          <!-- 여기에 채팅 메시지들이 쌓임 -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <input type="text" id="chatInput" class="form-control" placeholder="메시지를 입력하세요" />
+        <button class="btn btn-primary" id="sendChatBtn">보내기</button>
+      </div>
+    </div>
+  </div>
+</div>

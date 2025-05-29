@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>닉네임 설정</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .nickname-container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 350px;
+            text-align: center;
+        }
+        .nickname-container h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .nickname-container input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        .nickname-container button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .nickname-container button:hover {
+            background-color: #0056b3;
+        }
+        .message {
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            min-height: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="nickname-container">
+        <h2>닉네임을 설정하세요</h2>
+        <form method="POST">
+            <input type="text" name="nickname" placeholder="닉네임 입력" required>
+            <div class="message" id="nickname-message"></div>
+            <button type="submit">확인</button>
+        </form>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const input = document.querySelector("input[name='nickname']");
+        const message = document.getElementById("nickname-message");
+
+        input.addEventListener("input", async () => {
+            const nickname = input.value.trim();
+            if (!nickname) {
+                message.textContent = "";
+                return;
+            }
+
+            const response = await fetch("/check-nickname", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ nickname })
+            });
+            const data = await response.json();
+            if (data.exists) {
+                message.textContent = "⚠ 이미 사용 중인 닉네임입니다.";
+                message.style.color = "red";
+            } else {
+                message.textContent = "✔ 사용 가능한 닉네임입니다.";
+                message.style.color = "green";
+            }
+        });
+    });
+    </script>
+</body>
+</html>
