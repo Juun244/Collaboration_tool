@@ -19,39 +19,27 @@ function initializeCards() {
       e.preventDefault(); // 기본 제출 방지
 
       console.log("createCardForm 제출, projectId:", window.currentProjectId); // 디버깅 로그
-      // 버튼 비활성화
       createCardBtn.disabled = true;
 
       const formData = new FormData(createCardForm);
       const data = {
-        title: formData.get("title"),
+        card_title: formData.get("title"),
         description: formData.get("description"),
-        status: formData.get("status") || "todo" // 폼에서 선택한 상태 사용, 없으면 기본값 "todo"
+        status: formData.get("status") || "todo",
+        project_id: window.currentProjectId
       };
 
       console.log("카드 생성 데이터:", data); // 디버깅 로그
 
       try {
-        const response = await fetch(`/projects/${window.currentProjectId}/cards`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-
-        if (response.ok) {
-          const newCard = await response.json();
-          console.log("카드 생성 성공:", newCard); // 디버깅 로그
-          alert("카드가 생성되었습니다!");
-          bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
-          createCardForm.reset();
-          await loadCards(); // 카드, 히스토리, 댓글 새로고침
-        } else {
-          const error = await response.json();
-          console.error("카드 생성 실패:", error); // 디버깅 로그
-        }
+        // WebSocket 이벤트로 카드 생성
+        socket.emit('create_card', data);
+        //await loadCards();
+        bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
+        createCardForm.reset();
       } catch (err) {
         console.error("Create card error:", err);
-        alert("오류가 발생했습니다.");
+        alert("카드 생성 중 오류가 발생했습니다.");
       } finally {
         createCardBtn.disabled = false; // 버튼 재활성화
       }
@@ -67,7 +55,6 @@ function initializeCards() {
     console.error("createCardForm 또는 createCardBtn을 찾을 수 없음");
   }
 
-  /*
   // 드래그 앤 드롭 이벤트 (메인 대시보드에만)
   const containers = document.querySelectorAll(".project-card-wrapper .card-container");
   console.log("드래그 앤 드롭 컨테이너 수:", containers.length); // 디버깅 로그
@@ -79,7 +66,54 @@ function initializeCards() {
     });
     container.addEventListener("drop", handleCardDrop);
   });
-  */
+
+  // WebSocket 이벤트 리스너
+  socket.on('card_created', (data) => {
+    console.log("card_created 이벤트 수신:", data); // 디버깅 로그
+    loadCards(); // 카드 목록 새로고침
+  });
+
+  socket.on('card_updated', (data) => {
+    console.log("card_updated 이벤트 수신:", data); // 디버깅 로그
+    const { project_id, card_id, updates } = data;
+    const cardElement = document.querySelector(`[data-card-id="${card_id}"]`);
+    const modalCard = document.querySelector(`#projectBoardModal [data-card-id="${card_id}"]`);
+
+    const statusClasses = {
+      todo: "bg-primary",
+      in_progress: "bg-warning",
+      done: "bg-success"
+    };
+    const statusText = {
+      todo: "To Do",
+      in_progress: "In Progress",
+      done: "Done"
+    }[updates.status] || updates.status;
+
+    if (cardElement) {
+      cardElement.dataset.status = updates.status;
+      const badge = cardElement.querySelector(".badge");
+      badge.className = `badge ${statusClasses[updates.status] || "bg-secondary"} mt-2`;
+      badge.textContent = statusText;
+      cardElement.querySelector(".card-title").textContent = updates.title;
+    }
+
+    if (modalCard) {
+      modalCard.dataset.status = updates.status;
+      const modalBadge = modalCard.querySelector(".badge");
+      modalBadge.className = `badge ${statusClasses[updates.status] || "bg-secondary"} mt-2`;
+      modalBadge.textContent = statusText;
+      modalCard.querySelector(".card-title").textContent = updates.title;
+      modalCard.querySelector(".card-description").textContent = updates.description;
+    }
+
+    loadHistory(project_id); // 히스토리 새로고침
+  });
+
+  socket.on('card_deleted', (data) => {
+    console.log("card_deleted 이벤트 수신:", data); // 디버깅 로그
+    loadCards(); // 카드 목록 새로고침
+  });
 
   isInitialized = true;
   console.log("카드 초기화가 완료되었습니다.");
@@ -197,77 +231,53 @@ function createCardElement(card, isModal = false) {
   return cardElement;
 }
 
-/*
+function handleCardDragStart(e) {
+  console.log("드래그 시작, cardId:", e.target.dataset.cardId); // 디버깅 로그
+  e.dataTransfer.setData("text/plain", e.target.dataset.cardId);
+  e.target.style.opacity = "0.5";
+}
+
+function handleCardDragEnd(e) {
+  e.target.style.opacity = "1";
+}
+
 async function handleCardDrop(e) {
   e.preventDefault();
   const cardId = e.dataTransfer.getData("text/plain");
   const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
   const container = e.target.closest(".card-container");
+  const projectId = cardElement.dataset.projectId;
 
   console.log("handleCardDrop 호출됨, cardId:", cardId, "container:", container); // 디버깅 로그
 
   if (!cardId || !cardElement || !container) {
-    console.error("필수 데이터가 누락되었습니다:", { cardId, cardElement: !!cardElement, container: !!container });
+    console.error("필수 데이터 누락:", { cardId, cardElement: !!cardElement, container: !!container });
     return;
   }
 
-  // 상태 선택 (UI로 개선 권장)
-  const newStatus = prompt("새로운 상태를 입력하세요 (todo, in_progress, done):", cardElement.dataset.status);
+  // 드롭된 위치의 상태 가져오기 (컨테이너의 data-status 속성 사용)
+  const newStatus = container.dataset.status;
   if (!newStatus || newStatus === cardElement.dataset.status) {
+    console.log("상태 변경 없음 또는 취소됨");
     return;
   }
 
   try {
     cardElement.style.opacity = "0.5";
-    const response = await fetch(`/projects/${window.currentProjectId}/cards/${cardId}/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus, project_id: window.currentProjectId })
+    
+    // WebSocket 이벤트로 상태 업데이트
+    socket.emit('update_card', {
+      project_id: projectId,
+      card_id: cardId,
+      updates: { status: newStatus }
     });
-
-    if (response.ok) {
-      const responseData = await response.json();
-      console.log("카드 상태 업데이트 성공:", responseData);
-
-      // 상태 및 배지 업데이트
-      cardElement.dataset.status = newStatus;
-      const badge = cardElement.querySelector(".badge");
-      const statusClasses = {
-        todo: "bg-primary",
-        in_progress: "bg-warning",
-        done: "bg-success"
-      };
-      const statusText = {
-        todo: "To Do",
-        in_progress: "In Progress",
-        done: "Done"
-      }[newStatus] || newStatus;
-      badge.className = `badge ${statusClasses[newStatus] || "bg-secondary"} mt-2`;
-      badge.textContent = statusText;
-
-      // 모달의 동일 카드 업데이트
-      const modalCard = document.querySelector(`#projectBoardModal [data-card-id="${cardId}"]`);
-      if (modalCard) {
-        modalCard.dataset.status = newStatus;
-        const modalBadge = modalCard.querySelector(".badge");
-        modalBadge.className = `badge ${statusClasses[newStatus] || "bg-secondary"} mt-2`;
-        modalBadge.textContent = statusText;
-      }
-
-      // 히스토리 업데이트
-      await loadHistory(window.currentProjectId);
-    } else {
-      const error = await response.json();
-      alert(error.message || "카드 상태 변경 실패");
-    }
   } catch (err) {
-    console.error("Update card status error:", err);
+    console.error("카드 상태 업데이트 오류:", err);
     alert("카드 상태 업데이트 중 오류가 발생했습니다.");
   } finally {
     cardElement.style.opacity = "1";
   }
 }
-  */
 
 function initializeCardButtons() {
   // 기존 이벤트 리스너 제거
@@ -369,30 +379,20 @@ function initializeCardButtons() {
 
             const formData = new FormData(form);
             const data = {
-              title: formData.get("title"),
-              description: formData.get("description"),
-              status: formData.get("status")
+              project_id: projectId,
+              card_id: cardId,
+              updates: {
+                title: formData.get("title"),
+                description: formData.get("description"),
+                status: formData.get("status")
+              }
             };
 
             try {
-              const response = await fetch(`/projects/${projectId}/cards/${cardId}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-              });
-
-              if (response.ok) {
-                console.log("카드 수정 성공"); // 디버깅 로그
-                alert("카드가 수정되었습니다.");
-                bootstrap.Modal.getInstance(document.getElementById("editCardModal")).hide();
-                form.reset();
-                await loadCards(); // 카드 목록 새로고침
-                await loadHistory(projectId); // 히스토리 새로고침
-              } else {
-                const error = await response.json();
-                console.error("카드 수정 실패:", error); // 디버깅 로그
-                alert(error.message || "카드 수정 실패");
-              }
+              // WebSocket 이벤트로 카드 수정
+              socket.emit('update_card', data);
+              bootstrap.Modal.getInstance(document.getElementById("editCardModal")).hide();
+              form.reset();
             } catch (err) {
               console.error("Update card error:", err);
               alert("카드 수정 중 오류가 발생했습니다.");
@@ -426,19 +426,14 @@ function initializeCardButtons() {
       const cardId = button.dataset.cardId;
       if (confirm("이 카드를 삭제하시겠습니까?")) {
         try {
-          const response = await fetch(`/projects/${window.currentProjectId}/cards/${cardId}`, {
-            method: "DELETE"
+          // WebSocket 이벤트로 카드 삭제
+          socket.emit('delete_card', {
+            project_id: window.currentProjectId,
+            card_id: cardId
           });
-          if (response.ok) {
-            alert("카드가 삭제되었습니다.");
-            await loadCards();
-          } else {
-            const error = await response.json();
-            alert(error.message || "카드 삭제 실패");
-          }
         } catch (err) {
           console.error("Delete card error:", err);
-          alert("오류가 발생했습니다.");
+          alert("카드 삭제 중 오류가 발생했습니다.");
         }
       }
     });

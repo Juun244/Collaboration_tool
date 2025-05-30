@@ -1,13 +1,4 @@
-const socket = io();
 const chatInstances = new Map();
-
-// Socket.IO 연결 상태 디버깅
-socket.on("connect", () => {
-  console.log("Socket.IO connected");
-});
-socket.on("connect_error", (err) => {
-  console.error("Socket.IO connection error:", err);
-});
 
 // DOMContentLoaded 이벤트에서 버튼 및 모달 이벤트 설정
 document.addEventListener("DOMContentLoaded", () => {

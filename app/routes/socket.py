@@ -331,7 +331,8 @@ def register_socket_events(socketio):
             'user_id': user_id,
             'nickname': current_user.nickname,
             'timestamp': timestamp
-        }, room=project_id)
+        }, room= project_id, include_self=True)
+        print(f"card_created이벤트 전송: room : {project_id}")
 
     # 'delete_card' 이벤트 핸들러
     @socketio.on('delete_card')
@@ -750,3 +751,10 @@ def register_socket_events(socketio):
             'nickname': current_user.nickname,
             'timestamp': timestamp
         }, room=project_id)
+
+    @socketio.on("join_project")
+    def handle_join_project(data):
+        project_id = data
+        if project_id:
+            join_room(project_id)
+            print(f"User joined project room: {project_id}")

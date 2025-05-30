@@ -76,6 +76,7 @@ function initializeProjects() {
         }
         const cards = Array.from(container.querySelectorAll(".project-card-wrapper"));
         order.forEach(projectId => {
+          socket.emit('join_project', projectId);
           const card = cards.find(c => c.dataset.projectId === projectId);
           if (card) {
             container.appendChild(card);
