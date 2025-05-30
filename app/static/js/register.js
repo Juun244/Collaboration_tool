@@ -31,19 +31,19 @@
     }
 
     // 폼 요소
-    const usernameInput = document.getElementById("username");
+    const emailInput = document.getElementById("email");
     const passwordInput = document.getElementById("password");
     const confirmPasswordInput = document.getElementById("confirm_password");
-    const usernameFeedback = document.getElementById("usernameFeedback");
+    const usernameFeedback = document.getElementById("emailFeedback");
     const passwordFeedback = document.getElementById("passwordFeedback");
     const confirmPasswordFeedback = document.getElementById("confirmPasswordFeedback");
     const form = document.getElementById("registerForm");
 
     // 이메일 입력 시 실시간 검사
-    usernameInput.addEventListener("input", () => {
-      const isValid = validateEmail(usernameInput.value);
+    emailInput.addEventListener("input", () => {
+      const isValid = validateEmail(emailInput.value);
       updateInputState(
-        usernameInput,
+        emailInput,
         usernameFeedback,
         isValid,
         "유효한 이메일 주소를 입력하세요."
@@ -82,14 +82,14 @@
 
     // 폼 제출 시 클라이언트 측 유효성 검사
     form.addEventListener("submit", (event) => {
-      const isEmailValid = validateEmail(usernameInput.value);
+      const isEmailValid = validateEmail(emailInput.value);
       const isPasswordValid = validatePassword(passwordInput.value);
       const isConfirmValid = validateConfirmPassword(passwordInput.value, confirmPasswordInput.value);
 
       if (!isEmailValid || !isPasswordValid || !isConfirmValid) {
         event.preventDefault();
         updateInputState(
-          usernameInput,
+          emailInput,
           usernameFeedback,
           isEmailValid,
           "유효한 이메일 주소를 입력하세요."
