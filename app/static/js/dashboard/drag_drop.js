@@ -305,6 +305,12 @@ function initializeDragAndDrop() {
         credentials: 'include',
         body: JSON.stringify(payload)
       });
+      socket.emit('card_moved', {
+        card_id: cardId,
+        source_project_id: sourceProjectId,
+        target_project_id: targetProjectId,
+        order
+      });
 
       let errorData = null;
       try {
@@ -365,4 +371,22 @@ function handleCardDragEnd(e) {
     container.classList.remove('drag-over');
   });
   draggedCard = null;
+}
+
+socket.on("card_moved", data => {
+  console.log("Card moved event received:", data);
+  const { source_project_id, target_project_id } = data;
+  const currentProjectIds = getVisibleProjectIds(); // 화면에 보이는 프로젝트 목록
+
+  if (currentProjectIds.includes(source_project_id)) {
+    loadCards(source_project_id);
+  }
+  if (currentProjectIds.includes(target_project_id)) {
+    loadCards(target_project_id);
+  }
+});
+
+function getVisibleProjectIds() {
+  return Array.from(document.querySelectorAll(".card-container"))
+    .map(el => el.dataset.projectId);
 }

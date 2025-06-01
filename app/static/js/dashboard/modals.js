@@ -8,69 +8,6 @@ function initializeModals() {
 
   console.log("initializeModals 호출됨"); // 디버깅 로그
 
-  // 프로젝트 생성
-  document.getElementById("createProject").addEventListener("click", async () => {
-    const form = document.getElementById("newProjectForm");
-    const formData = new FormData(form);
-    const data = {
-      name: formData.get("name"),
-      description: formData.get("description"),
-      deadline: formData.get("deadline")
-    };
-    try {
-      const response = await fetch("/projects/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
-        alert("프로젝트가 생성되었습니다!");
-
-        // 🔧 모달 닫기 안전 처리
-        const modalElement = document.getElementById("newProjectModal");
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
-        modalInstance.hide();
-
-        form.reset();
-        window.location.reload();
-      } else {
-        const error = await response.json();
-        alert(error.message || "프로젝트 생성 실패");
-      }
-    } catch (err) {
-      console.error("Create project error:", err);
-      alert("오류가 발생했습니다.");
-    }
-  });
-
-  // 초대 보내기
-  document.getElementById("sendInvite").addEventListener("click", async () => {
-    const form = document.getElementById("inviteMemberForm");
-    const formData = new FormData(form);
-    const projectId = document.getElementById("inviteProjectId").value;
-    const data = {
-      nickname: formData.get("nickname")
-    };
-    try {
-      const response = await fetch(`/projects/${projectId}/invite`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
-        alert("초대가 전송되었습니다.");
-        bootstrap.Modal.getInstance(document.getElementById("inviteMemberModal")).hide();
-        form.reset();
-      } else {
-        const error = await response.json();
-        alert(error.message || "초대 전송 실패");
-      }
-    } catch (error) {
-      console.error("Error sending invite:", error);
-      alert("오류가 발생했습니다.");
-    }
-  });
-
   // 초대 모달 열기
   document.querySelectorAll(".invite-member").forEach(button => {
     button.addEventListener("click", e => {
