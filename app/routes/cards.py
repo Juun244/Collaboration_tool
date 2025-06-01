@@ -149,7 +149,6 @@ def move_card(project_id):
                 {"_id": cid, "project_id": target_oid},
                 {"$set": {"order": index}}
             )
-
         logger.info(f"Card {card_id} moved from project {source_project_id} to {target_project_id} with order {order}")
         return jsonify({"message": "카드가 이동되고 순서가 업데이트되었습니다."}), 200
     except PyMongoError as e:

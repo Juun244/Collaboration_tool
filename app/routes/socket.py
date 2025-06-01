@@ -780,3 +780,11 @@ def register_socket_events(socketio):
         if nickname:
             join_room(nickname)
             print(f"{nickname} joined room: {nickname}")
+
+    @socketio.on("card_moved")
+    def broadcast_card_moved(data):
+        source_project_id = data.get("source_project_id")
+        target_project_id = data.get("target_project_id")
+        emit("card_moved", data, room= source_project_id)
+        if source_project_id != target_project_id:
+            emit("card_moved", data, room= target_project_id)

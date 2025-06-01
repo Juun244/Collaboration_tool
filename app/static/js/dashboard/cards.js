@@ -54,17 +54,6 @@ function initializeCards() {
     console.error("createCardForm 또는 createCardBtn을 찾을 수 없음");
   }
 
-  // 드래그 앤 드롭 이벤트 (메인 대시보드에만)
-  const containers = document.querySelectorAll(".project-card-wrapper .card-container");
-  console.log("드래그 앤 드롭 컨테이너 수:", containers.length); // 디버깅 로그
-  containers.forEach(container => {
-    container.addEventListener("dragover", e => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-    });
-    container.addEventListener("drop", handleCardDrop);
-  });
-
   // WebSocket 이벤트 리스너
   socket.on('card_created', (data) => {
     console.log("card_created 이벤트 수신:", data); // 디버깅 로그
@@ -227,54 +216,6 @@ function createCardElement(card, isModal = false) {
   }
 
   return cardElement;
-}
-
-function handleCardDragStart(e) {
-  console.log("드래그 시작, cardId:", e.target.dataset.cardId); // 디버깅 로그
-  e.dataTransfer.setData("text/plain", e.target.dataset.cardId);
-  e.target.style.opacity = "0.5";
-}
-
-function handleCardDragEnd(e) {
-  e.target.style.opacity = "1";
-}
-
-async function handleCardDrop(e) {
-  e.preventDefault();
-  const cardId = e.dataTransfer.getData("text/plain");
-  const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
-  const container = e.target.closest(".card-container");
-  const projectId = cardElement.dataset.projectId;
-
-  console.log("handleCardDrop 호출됨, cardId:", cardId, "container:", container); // 디버깅 로그
-
-  if (!cardId || !cardElement || !container) {
-    console.error("필수 데이터 누락:", { cardId, cardElement: !!cardElement, container: !!container });
-    return;
-  }
-
-  // 드롭된 위치의 상태 가져오기 (컨테이너의 data-status 속성 사용)
-  const newStatus = container.dataset.status;
-  if (!newStatus || newStatus === cardElement.dataset.status) {
-    console.log("상태 변경 없음 또는 취소됨");
-    return;
-  }
-
-  try {
-    cardElement.style.opacity = "0.5";
-    
-    // WebSocket 이벤트로 상태 업데이트
-    socket.emit('update_card', {
-      project_id: projectId,
-      card_id: cardId,
-      updates: { status: newStatus }
-    });
-  } catch (err) {
-    console.error("카드 상태 업데이트 오류:", err);
-    alert("카드 상태 업데이트 중 오류가 발생했습니다.");
-  } finally {
-    cardElement.style.opacity = "1";
-  }
 }
 
 function initializeCardButtons() {
