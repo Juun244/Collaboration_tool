@@ -20,16 +20,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  const openChatBtn = document.getElementById("openChatBtn");
-  if (openChatBtn) {
-    openChatBtn.addEventListener("click", () => {
-      console.log("Opening default chat for project1");
-      openChat("project1");
-    });
-  } else {
-    console.warn("openChatBtn not found");
-  }
-
   // 모달 이벤트 감지
   const projectBoardModal = document.getElementById("projectBoardModal");
   if (projectBoardModal) {
@@ -271,7 +261,7 @@ function openChat(projectId,projectName) {
   });
 
   console.log("Joining room for project:", projectId);
-  socket.emit("join", { project_id: projectId }, (response) => {
+  socket.emit("join", projectId , (response) => {
     console.log(`Server response for join ${projectId}:`, response);
   });
 }
@@ -302,7 +292,7 @@ function appendSystemMessage(projectId, msg) {
   console.log("Appending system message to project:", projectId, msg);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
   if (!chatMessages) {
-    console.error(`chatMessages-${projectId} not found`);
+    //console.error(`chatMessages-${projectId} not found`);
     return;
   }
   const div = document.createElement("div");

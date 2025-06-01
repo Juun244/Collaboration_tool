@@ -34,7 +34,6 @@ function initializeCards() {
       try {
         // WebSocket 이벤트로 카드 생성
         socket.emit('create_card', data);
-        //await loadCards();
         bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
         createCardForm.reset();
       } catch (err) {
@@ -62,7 +61,6 @@ function initializeCards() {
     container.addEventListener("dragover", e => {
       e.preventDefault();
       e.dataTransfer.dropEffect = "move";
-      console.log("dragover 이벤트 발생, 컨테이너:", container); // 디버깅 로그
     });
     container.addEventListener("drop", handleCardDrop);
   });

@@ -16,7 +16,7 @@ def register_socket_events(socketio):
     @socketio.on('join')
     @login_required
     def handle_join(data):
-        project_id = str(data.get('project_id'))
+        project_id = data
         sid = request.sid
         if not current_user.is_authenticated:
             emit('notice', {'msg': '인증되지 않은 사용자입니다.', 'project_id': project_id}, to=sid)
@@ -31,25 +31,24 @@ def register_socket_events(socketio):
             emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=sid)
             return
 
-        join_room(project_id, sid=sid)
-        messages = list(
-            mongo.db.chat_messages.find({'project_id': project_id})
-            .sort('timestamp', -1)
-            .limit(50)
-        )[::-1]
+        join_room(project_id)
+        # 메시지 기록 DB에서 불러오기
+        messages = mongo.db.chat_messages.find({"project_id": project_id}).sort("timestamp", 1)
+        history = []
+        for msg in messages:
+            history.append({
+                "project_id": project_id,
+                "nickname": msg.get("nickname"),
+                "message": msg.get("message"),
+                "timestamp": msg.get("timestamp").strftime("%Y-%m-%d %H:%M")
+            })
+        
+        emit("chat_history", history, room=current_user.nickname)  # 특정 사용자에게만 전송
 
-        history = [
-            {
-                'user_id': msg.get('user_id', ''),
-                'project_id': project_id,
-                'nickname': msg.get('nickname', '알수없음'),
-                'message': msg['message'],
-                'timestamp': msg['timestamp'].strftime('%H:%M:%S')
-            } for msg in messages
-        ]
-
-        emit('chat_history', history, to=sid)
-        emit('notice', {'msg': f'{current_user.nickname}님이 입장하셨습니다.', 'project_id': project_id}, room=project_id)
+        emit("notice", {
+            "project_id": project_id,
+            "msg": f"{current_user.nickname}님이 입장하였습니다."
+        }, room=project_id)
 
     # 'leave' 이벤트 핸들러
     @socketio.on('leave')
@@ -149,41 +148,45 @@ def register_socket_events(socketio):
             'timestamp': timestamp
         }, room=project_id)
 
-    # 'project_deleted' 이벤트 핸들러
-    @socketio.on('project_deleted')
+    @socketio.on('project_updated')
     @login_required
-    def handle_project_deleted(data):
-        project_id = str(data.get('project_id'))
+    def handle_project_updated(data):
+        project_id = data.get('project_id')
+        action = data.get('action')  # "삭제" 또는 "나가기"
+        user_nickname = current_user.nickname
         user_id = str(current_user.get_id())
-        timestamp = get_timestamp()
 
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
+        if not project_id or not action:
             return
 
-        if str(project.get('owner')) != user_id:
-            emit('notice', {'msg': '프로젝트 삭제 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
+        if action == "삭제":
+            # 삭제된 프로젝트는 DB에서 사라졌으므로, 이전 members 리스트를 직접 찾아야 함
+            deleted_project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
+            if deleted_project:
+                member_ids = deleted_project.get("members", [])
+            else:
+                # 캐싱 또는 이전 정보를 이용해야 하지만 예외적으로 owner 외엔 수신할 수 없음
+                member_ids = []
+        else:
+            # 나가기일 경우 현재 멤버 정보 조회
+            project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
+            if not project:
+                return
+            member_ids = project.get("members", [])
 
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=None,
-            user_id=user_id,
-            action='delete',
-            details={
-                'project_name': project['name'],
-                'nickname': current_user.nickname
-            }
-        )
+        for member_id in member_ids:
+            user = mongo.db.users.find_one({"_id": member_id})
+            if user:
+                emit("project_updated", {
+                    "project_id": project_id,
+                    "action": action,
+                    "user_nickname": user_nickname,
+                    "user_id": user_id
+                }, room=user["nickname"])
+                print(f"aaaaa!!@@@{user['nickname']}")
 
-        emit('project_deleted', {
-            'project_id': project_id,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
-        }, room=project_id)
+        print(f"📢 project_updated 이벤트: {action} by {user_nickname} for {project_id}")
+
 
     # 'invite_project' 이벤트 핸들러
     @socketio.on('invite_project')
@@ -193,41 +196,42 @@ def register_socket_events(socketio):
         invitee_nickname = data.get('invitee_nickname')
         inviter_id = str(current_user.get_id())
         timestamp = get_timestamp()
+        print(f"Handling invite_project: project_id={project_id}, invitee_nickname={invitee_nickname}, inviter_nickname={current_user.nickname}")
 
+        # 프로젝트 및 사용자 검증
         project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
         if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
+            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=current_user.nickname, include_self=True)
             return
 
         if ObjectId(inviter_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
+            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=current_user.nickname, include_self=True)
             return
 
         invitee = mongo.db.users.find_one({'nickname': invitee_nickname})
         if not invitee:
-            emit('notice', {'msg': '사용자를 찾을 수 없습니다.', 'invitee_nickname': invitee_nickname}, to=request.sid)
+            emit('notice', {'msg': '사용자를 찾을 수 없습니다.', 'invitee_nickname': invitee_nickname}, to=current_user.nickname, include_self=True)
             return
 
         if ObjectId(invitee['_id']) in project.get('members', []):
-            emit('notice', {'msg': '이미 프로젝트 멤버입니다.', 'invitee_nickname': invitee_nickname}, to=request.sid)
+            emit('notice', {'msg': '이미 프로젝트 멤버입니다.', 'invitee_nickname': invitee_nickname}, to=current_user.nickname, include_self=True)
             return
 
-        if ObjectId(project_id) in invitee.get('invitations', []):
-            emit('notice', {'msg': '이미 초대된 사용자입니다.', 'invitee_nickname': invitee_nickname}, to=request.sid)
-            return
-
+        # 초대 정보 DB에 저장
         mongo.db.users.update_one(
             {'_id': invitee['_id']},
             {'$push': {'invitations': ObjectId(project_id)}}
         )
 
-        emit('project_invite', {
+        # 초대 이벤트 전송
+        emit('invite_project', {
             'project_id': project_id,
             'inviter_id': inviter_id,
             'inviter_nickname': current_user.nickname,
             'invitee_nickname': invitee_nickname,
             'timestamp': timestamp
-        }, room=str(invitee['_id']))
+        }, room=invitee_nickname)
+        print(f"Sending project_invite to room {invitee_nickname}: {{project_id: {project_id}, invitee: {invitee_nickname}}}")
 
     # 'respond_invite' 이벤트 핸들러
     @socketio.on('respond_invite')
@@ -249,6 +253,7 @@ def register_socket_events(socketio):
         )
 
         if accepted:
+            # 프로젝트 멤버로 추가
             mongo.db.projects.update_one(
                 {'_id': ObjectId(project_id)},
                 {'$addToSet': {'members': ObjectId(user_id)}}
@@ -265,13 +270,30 @@ def register_socket_events(socketio):
                 }
             )
 
+            # 프로젝트 룸에 조인
+            join_room(project_id)
+            print(f"User {current_user.nickname} joined project room: {project_id}")
+
+        # 초대 수락한 본인만 받게
+        message = "초대를 수락했습니다." if accepted else "초대를 거절했습니다."
+        emit('invite_response', {
+            'project_id': project_id,
+            'user_id': user_id,
+            'nickname': current_user.nickname,
+            'accepted': accepted,
+            'message': message,
+            'timestamp': timestamp
+        }, to=current_user.nickname)
+
+        # 나머지 기존 프로젝트 멤버에게만 알림
         emit('invite_response', {
             'project_id': project_id,
             'user_id': user_id,
             'nickname': current_user.nickname,
             'accepted': accepted,
             'timestamp': timestamp
-        }, room=project_id)
+        }, room= project_id, include_self=False)
+
 
     # 'create_card' 이벤트 핸들러
     @socketio.on('create_card')
@@ -752,9 +774,9 @@ def register_socket_events(socketio):
             'timestamp': timestamp
         }, room=project_id)
 
-    @socketio.on("join_project")
-    def handle_join_project(data):
-        project_id = data
-        if project_id:
-            join_room(project_id)
-            print(f"User joined project room: {project_id}")
+    @socketio.on("join_dashboard")
+    def handle_join(data):
+        nickname = data.get("nickname")
+        if nickname:
+            join_room(nickname)
+            print(f"{nickname} joined room: {nickname}")

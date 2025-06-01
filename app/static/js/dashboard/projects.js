@@ -6,6 +6,77 @@ function initializeProjects() {
     return;
   }
 
+  socket.on("project_updated", (data) => {
+    console.log("프로젝트 업데이트 이벤트 수신:", data);
+    const cardEl = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
+
+    if (data.action === "나가기") {
+      if (!cardEl) return;
+      const countEl = cardEl.querySelector(".member-count");
+      if (!countEl) return;
+      const current = parseInt(countEl.textContent) || 0;
+      countEl.textContent = `${current - 1} members`;
+      console.log("멤버 수 갱신:", countEl.textContent);
+      if (data.user_nickname != window.currentUserNickname)  alert(`👋 ${data.user_nickname}님이 프로젝트를 나갔습니다.`, "info");
+    } else if (data.action === "삭제") {
+      cardEl.remove();
+      if (data.user_nickname != window.currentUserNickname)  alert(`📌 ${data.user_nickname}님이 프로젝트를 삭제했습니다.`, "info");
+    }
+  });
+
+  // 마감일 설정/수정 이벤트 수신
+  socket.on("set_due_date", updateCardDueDate);
+  socket.on("update_due_date", updateCardDueDate);
+
+  function updateCardDueDate(data) {
+    const card = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
+    if (card) {
+      const due = card.querySelector(".due-date");
+      if (due) {
+        due.textContent = formatDate(data.due_date);
+      }
+    }
+  }
+
+  // 댓글 관련 이벤트 수신
+  socket.on("create_comment", data => {
+    const currentProjectId = document.getElementById("projectBoardModal")?.dataset.projectId;
+    if (data.project_id !== currentProjectId) return;
+
+    const list = document.getElementById("comment-list");
+    if (list) {
+      const commentHTML = renderCommentHTML(data.comment);
+      list.insertAdjacentHTML("beforeend", commentHTML);
+    }
+  });
+
+  socket.on("update_comment", data => {
+    const div = document.querySelector(`.comment[data-id="${data.comment._id}"]`);
+    if (!div) return;
+
+    const contentSpan = div.querySelector(".comment-content");
+    if (contentSpan) contentSpan.textContent = data.comment.content;
+
+    let img = div.querySelector("img");
+    if (data.comment.image_url) {
+      if (!img) {
+        img = document.createElement("img");
+        img.className = "img-fluid";
+        div.appendChild(img);
+      }
+      img.src = data.comment.image_url;
+      img.style.maxHeight = "200px";
+    } else {
+      if (img) img.remove();
+    }
+  });
+
+  socket.on("delete_comment", data => {
+    const div = document.querySelector(`.comment[data-id="${data.comment_id}"]`);
+    if (div) div.remove();
+  });
+  
+
   // ✅ 삭제/나가기 버튼 클릭 처리 (모달 내에서 이벤트 바인딩)
   const projectBoardModal = document.getElementById('projectBoardModal');
   if (projectBoardModal) {
@@ -35,6 +106,7 @@ function initializeProjects() {
       console.log(`Attempting to ${action} project with ID: ${projectId}, Endpoint: ${endpoint}`);
       if (confirm(`이 프로젝트를 ${action}하시겠습니까?`)) {
         try {
+          await socket.emit('project_updated', { project_id: projectId , action: action});
           const response = await fetch(endpoint, {
             method: "DELETE",
             headers: {
@@ -76,7 +148,8 @@ function initializeProjects() {
         }
         const cards = Array.from(container.querySelectorAll(".project-card-wrapper"));
         order.forEach(projectId => {
-          socket.emit('join_project', projectId);
+          // 이벤트 수신을 위한 각 project의 room에 join
+          socket.emit('join', projectId);
           const card = cards.find(c => c.dataset.projectId === projectId);
           if (card) {
             container.appendChild(card);
@@ -141,6 +214,41 @@ async function loadComments(projectId) {
     alert("댓글을 불러오는 데 실패했습니다.");
   }
 }
+
+// 프로젝트 생성
+document.getElementById("createProject").addEventListener("click", async () => {
+    const form = document.getElementById("newProjectForm");
+    const formData = new FormData(form);
+    const data = {
+      name: formData.get("name"),
+      description: formData.get("description"),
+      deadline: formData.get("deadline")
+    };
+    try {
+      const response = await fetch("/projects/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        alert("프로젝트가 생성되었습니다!");
+
+        // 🔧 모달 닫기 안전 처리
+        const modalElement = document.getElementById("newProjectModal");
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        modalInstance.hide();
+
+        form.reset();
+        window.location.reload();
+      } else {
+        const error = await response.json();
+        alert(error.message || "프로젝트 생성 실패");
+      }
+    } catch (err) {
+      console.error("Create project error:", err);
+      alert("오류가 발생했습니다.");
+    }
+  });
 
 // ---------------------------------------------------
 // ▶ 이벤트 위임: 댓글 리스트에 단 한 번만 붙입니다
@@ -409,4 +517,45 @@ if (projectBoardModal) {
   });
 } else {
   console.error("projectBoardModal element not found");
+}
+
+function createProjectCardHTML(project) {
+  return `
+    <div class="project-card-wrapper" data-project-id="${project._id}">
+      <div class="card border-primary mb-3" style="max-width: 18rem;">
+        <div class="card-header">${project.title}</div>
+        <div class="card-body text-primary">
+          <h5 class="card-title">${project.description}</h5>
+          <p class="card-text">마감일: <span class="due-date">${formatDate(project.due_date)}</span></p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderCommentHTML(comment) {
+  const isMine = comment.author_id === currentUser.id;
+  const time = new Date(comment.created_at).toLocaleString('ko-KR', {
+    dateStyle: 'short',
+    timeStyle: 'short'
+  });
+
+  return `
+    <div class="comment mb-2" data-id="${comment._id}">
+      <b>${comment.author_name}</b>
+      <span style="color:gray; font-size:small;">${time}</span><br>
+      <span class="comment-content">${comment.content}</span>
+      ${comment.image_url ? `<div class="mt-2"><img src="${comment.image_url}" class="img-fluid" style="max-height:200px;" /></div>` : ""}
+      ${isMine ? `
+        <div class="mt-1">
+          <button class="btn btn-sm btn-outline-secondary edit-comment-btn">수정</button>
+          <button class="btn btn-sm btn-outline-danger delete-comment-btn">삭제</button>
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function formatDate(isoString) {
+  return new Date(isoString).toLocaleDateString('ko-KR', { dateStyle: 'medium' });
 }
