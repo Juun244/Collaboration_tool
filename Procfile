@@ -1,1 +1,1 @@
-web: gunicorn -w 4 app.main:app
+web: gunicorn -w 4 -k eventlet -b 0.0.0.0:$PORT wsgi:app
