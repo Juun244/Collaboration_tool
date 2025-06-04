@@ -35,7 +35,7 @@ app.config.update(
 mongo.init_app(app)
 bcrypt = Bcrypt(app)
 mail.init_app(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # 로그인 매니저 설정
 login_manager = LoginManager()
