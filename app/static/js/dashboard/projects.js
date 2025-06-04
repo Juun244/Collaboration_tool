@@ -51,7 +51,7 @@ function initializeProjects() {
   });
 
   socket.on("update_comment", data => {
-    const div = document.querySelector(`.comment[data-id="${data.comment._id}"]`);
+    const div = document.querySelector(`.comment[data-id="${data.comment.id}"]`);
     if (!div) return;
 
     const contentSpan = div.querySelector(".comment-content");
@@ -195,7 +195,7 @@ async function loadComments(projectId) {
       });
       const isMine = comment.author_id === currentUser.id;
       list.innerHTML += `
-        <div class="comment mb-2" data-id="${comment._id}">
+        <div class="comment mb-2" data-id="${comment.id}">
           <b>${comment.author_name}</b>
           <span style="color:gray; font-size:small;">${formattedTime}</span><br>
           <span class="comment-content">${comment.content}</span>
@@ -297,28 +297,34 @@ function startInlineEdit(div) {
   div.appendChild(textarea);
 
   // 이미지 업로드 input & 삭제 체크박스
-  let fileInput, removeCheckbox, removeLabel;
+  let fileInput, removeBtn;
   if (origImg) {
-    origImg.style.display = 'none';
+    // 삭제(X) 버튼 생성
+    removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = 'X';
+    removeBtn.title = '이미지 삭제';
+    removeBtn.className = 'btn btn-sm btn-danger ms-2 remove-img-btn';
+    origImg.after(removeBtn);
+    // 파일 input(기본 숨김)
     fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
-    fileInput.className = 'form-control form-control-sm mb-2';
+    fileInput.className = 'form-control form-control-sm mt-2 d-none';
     div.appendChild(fileInput);
-
-    removeCheckbox = document.createElement('input');
-    removeCheckbox.type = 'checkbox';
-    removeCheckbox.id = `rm-img-${div.dataset.id}`;
-    removeCheckbox.className = 'form-check-input me-1';
-    removeLabel = document.createElement('label');
-    removeLabel.htmlFor = removeCheckbox.id;
-    removeLabel.textContent = '이미지 삭제';
-    removeLabel.className = 'form-check-label mb-2';
-    const rmContainer = document.createElement('div');
-    rmContainer.className = 'form-check mb-2';
-    rmContainer.append(removeCheckbox, removeLabel);
-    div.appendChild(rmContainer);
- }
+    // X버튼 클릭시: 이미지+X 버튼 제거, 파일input 노출
+    removeBtn.onclick = () => {
+      origImg.remove();
+      removeBtn.remove();
+      fileInput.classList.remove('d-none');
+    };
+  } else {
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.className = 'form-control form-control-sm mt-2';
+    div.appendChild(fileInput);
+  }
 
   // 저장/취소 버튼
   const saveBtn = document.createElement('button');
@@ -336,18 +342,19 @@ function startInlineEdit(div) {
 async function saveInlineEdit(div, projectId) {
   const textarea = div.querySelector('textarea');
   const newText = textarea.value.trim();
-  if (!newText) return alert('댓글 내용을 입력하세요.');
-
-  const origImg = div.querySelector('img');
   const fileInput = div.querySelector('input[type=file]');
-  const removeCheckbox = div.querySelector('.form-check-input');
-
+  const hasImage = fileInput && fileInput.files.length > 0;
+  // "이미지"가 없는 상태: (X버튼 눌려서 <img>없고, 파일input 보임)
+  const isImageRemoved = !div.querySelector('img') && fileInput && !fileInput.classList.contains('d-none');
+  if (!newText && !hasImage && !isImageRemoved) {
+    return alert('댓글 내용을 입력하거나 이미지를 추가/삭제하세요.');
+  }
   let res;
-  if ((fileInput && fileInput.files.length) || (removeCheckbox && removeCheckbox.checked)) {
+  if (hasImage || isImageRemoved) {
     const formData = new FormData();
     formData.append('content', newText);
-    if (fileInput.files.length) formData.append('image', fileInput.files[0]);
-    if (removeCheckbox.checked) formData.append('delete_image', '1');
+    if (hasImage) formData.append('image', fileInput.files[0]);
+    if (isImageRemoved) formData.append('delete_image', '1');
     res = await fetch(`/comments/${div.dataset.id}`, {
       method: 'PUT',
       body: formData,
@@ -368,16 +375,7 @@ async function saveInlineEdit(div, projectId) {
   }
 
   // UI 업데이트
-  div.querySelector('.comment-content').textContent = newText;
-  if (origImg) {
-    if (removeCheckbox && removeCheckbox.checked) {
-      origImg.remove();
-    } else if (fileInput && fileInput.files.length) {
-      origImg.src = URL.createObjectURL(fileInput.files[0]);
-    }
-    origImg.style.display = '';
-  }
-  cancelInlineEdit(div);
+  loadComments(projectId);
 }
 
 function cancelInlineEdit(div) {
@@ -541,7 +539,7 @@ function renderCommentHTML(comment) {
   });
 
   return `
-    <div class="comment mb-2" data-id="${comment._id}">
+    <div class="comment mb-2" data-id="${comment.id}">
       <b>${comment.author_name}</b>
       <span style="color:gray; font-size:small;">${time}</span><br>
       <span class="comment-content">${comment.content}</span>
