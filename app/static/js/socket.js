@@ -1,9 +1,9 @@
-window.socket = io('https://scramble-fa0d.onrender.com', {
+window.socket = io(/*'https://scramble-fa0d.onrender.com', {
   transports: ['websocket', 'polling'],
   reconnection: true,
   reconnectionAttempts: 5,
   reconnectionDelay: 1000,
-});
+}*/);
 // Socket.IO 연결 상태 디버깅
 socket.on("connect", () => {
   console.log("Socket.IO connected");

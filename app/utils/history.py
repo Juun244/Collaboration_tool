@@ -1,18 +1,19 @@
 from bson import ObjectId
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pymongo.errors import PyMongoError
 from .helpers import logger, safe_object_id
 
 # 히스토리 기록
-def log_history(mongo, project_id, card_id, user_id, action, details):
+def log_history(mongo, project_id, card_id, user_id, action, details, nickname):
     try:
         mongo.db.history.insert_one({
             "project_id": safe_object_id(project_id),
             "card_id": safe_object_id(card_id),
             "user_id": ObjectId(user_id),
+            "nickname": nickname,
             "action": action,
             "details": details,
-            "created_at": datetime.utcnow()
+            "created_at": datetime.now(timezone.utc)
         })
         logger.info(f"Logged history: {action} for card {card_id} in project {project_id}")
     except PyMongoError as e:
@@ -39,7 +40,7 @@ def get_project_history(mongo, project_id, user_id):
 
             history_list.append({
                 "id": str(entry["_id"]),
-                "user": user["nickname"] if user else "Unknown",
+                "nickname": user["nickname"] if user else "Unknown",
                 "action": entry["action"],
                 "details": entry["details"],
                 "created_at": timestamp

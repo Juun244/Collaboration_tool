@@ -134,6 +134,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=None,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='create',
             details={
                 'project_name': name,
@@ -281,6 +282,7 @@ def register_socket_events(socketio):
                 project_id=project_id,
                 card_id=None,
                 user_id=user_id,
+                nickname= current_user.nickname,
                 action='join',
                 details={
                     'project_name': project['name'],
@@ -357,6 +359,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='card_create',
             details={
                 'title': card_title,
@@ -381,7 +384,7 @@ def register_socket_events(socketio):
             'user_id': user_id,
             'nickname': current_user.nickname,
             'timestamp': timestamp
-        }, room=project_id, include_self=True)
+        }, room=project_id)
 
     # 'delete_card' 이벤트 핸들러
     @socketio.on('delete_card')
@@ -411,6 +414,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='card_delete',
             details={'title': card['title']}
         )
@@ -476,6 +480,7 @@ def register_socket_events(socketio):
                 project_id=project_id,
                 card_id=card_id,
                 user_id=user_id,
+                nickname= current_user.nickname,
                 action='card_status_update',
                 details={
                     'from_status': card['status'],
@@ -490,6 +495,7 @@ def register_socket_events(socketio):
                 project_id=project_id,
                 card_id=card_id,
                 user_id=user_id,
+                nickname= current_user.nickname,
                 action='card_update',
                 details=changes
             )
@@ -567,6 +573,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='card_due_date_set',
             details={
                 'title': card['title'],
@@ -624,6 +631,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='card_due_date_update',
             details={
                 'title': card['title'],
@@ -753,6 +761,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='comment_delete',
             details={
                 'content': comment['content'],
@@ -816,6 +825,7 @@ def register_socket_events(socketio):
             project_id=project_id,
             card_id=card_id,
             user_id=user_id,
+            nickname= current_user.nickname,
             action='comment_update',
             details={
                 'old_content': comment['content'],

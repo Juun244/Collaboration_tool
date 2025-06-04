@@ -121,6 +121,7 @@ def move_card(project_id):
                 project_id=source_project_id,
                 card_id=card_id,
                 user_id=str(user_id),
+                nickname= current_user.nickname,
                 action="card_move_out",
                 details=history_details
             )
@@ -130,6 +131,7 @@ def move_card(project_id):
             project_id=target_project_id,
             card_id=card_id,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="card_move_in",
             details=history_details
         )
@@ -195,6 +197,7 @@ def create_card(project_id):
             project_id=project_id,
             card_id=card_id,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="card_create",
             details={
                 "title": new_card["title"],
@@ -239,6 +242,7 @@ def delete_card(project_id, card_id):
         project_id=project_id,
         card_id=card_id,
         user_id=str(user_id),
+        nickname= current_user.nickname,
         action="card_delete",
         details={
             "title": card["title"],
@@ -307,6 +311,7 @@ def update_card_status(project_id, card_id):
         project_id=project_id,
         card_id=card_id,
         user_id=str(user_id),
+        nickname= current_user.nickname,
         action="card_status_update",
         details={
             "from_status": card["status"],
@@ -366,6 +371,7 @@ def reorder_cards(project_id):
                         project_id=project_id,
                         card_id=str(cid),
                         user_id=str(user_id),
+                        nickname= current_user.nickname,
                         action="card_reorder",
                         details={
                             "title": card["title"],
@@ -422,6 +428,7 @@ def update_card(project_id, card_id):
             project_id=project_id,
             card_id=card_id,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="card_status_update",
             details={
                 "from_status": card["status"],
@@ -437,6 +444,7 @@ def update_card(project_id, card_id):
             project_id=project_id,
             card_id=card_id,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="card_update",
             details={**changes, "project_name": project["name"]}
         )
@@ -519,6 +527,7 @@ def set_due_date(project_id, card_id):
         project_id=project_id,
         card_id=card_id,
         user_id=str(user_id),
+        nickname= current_user.nickname,
         action="card_due_date_set",
         details={
             "title": card["title"],
@@ -570,6 +579,7 @@ def update_due_date(project_id, card_id):
         project_id=project_id,
         card_id=card_id,
         user_id=str(user_id),
+        nickname= current_user.nickname,
         action="card_due_date_update",
         details={
             "title": card["title"],

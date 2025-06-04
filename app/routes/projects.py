@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, current_app, url_for
 from flask_login import login_required, current_user
 from flask_pymongo import PyMongo
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app.utils.helpers import logger, safe_object_id, handle_db_error
 from app.utils.history import log_history
 import os
@@ -84,6 +84,7 @@ def create_project():
             project_id=project_id,
             card_id=None,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="create",
             details={
                 "project_name": new_project["name"],
@@ -118,6 +119,7 @@ def delete_or_leave_project(project_id):
             project_id=project_id,
             card_id=None,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="delete",
             details={
                 "project_name": project["name"],
@@ -137,6 +139,7 @@ def delete_or_leave_project(project_id):
             project_id=project_id,
             card_id=None,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="leave",
             details={
                 "project_name": project["name"],
@@ -206,6 +209,7 @@ def invite_member(project_id):
         project_id=project_id,
         card_id=None,
         user_id=str(current_user.get_id()),
+        nickname= current_user.nickname,
         action="invite",
         details={
             "inviter_nickname": current_user.nickname,
@@ -259,6 +263,7 @@ def respond_invitation():
             project_id=str(project_id),
             card_id=None,
             user_id=str(user_id),
+            nickname= current_user.nickname,
             action="join",
             details={
                 "project_name": project["name"],
@@ -342,15 +347,16 @@ def get_history(project_id):
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
-
-    history = list(mongo.db.history.find({"project_id": project_id}).sort("timestamp", -1))
+    
+    history = list(mongo.db.history.find({"project_id": oid}).sort("created_at", -1))
     return jsonify({
         "history": [{
             "id": str(h["_id"]),
             "action": h["action"],
             "details": h["details"],
             "user_id": h["user_id"],
-            "timestamp": h["timestamp"].strftime("%H:%M:%S")
+            "nickname": h["nickname"],
+            "created_at": h["created_at"].replace(tzinfo=timezone.utc).astimezone(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S")
         } for h in history]
     }), 200
 
@@ -430,6 +436,7 @@ def add_comment(project_id):
         project_id=project_id,
         card_id=None,
         user_id=str(user_id),
+        nickname= current_user.nickname,
         action="comment_create",
         details={
             "content": content,
@@ -513,6 +520,7 @@ def edit_comment(comment_id):
             project_id=str(comment["project_id"]),
             card_id=None,
             user_id=str(current_user.get_id()),
+            nickname= current_user.nickname,
             action="comment_update",
             details={
                 "old_content": comment["content"],
@@ -565,6 +573,7 @@ def delete_comment(comment_id):
             project_id=str(comment["project_id"]),
             card_id=None,
             user_id=str(current_user.get_id()),
+            nickname= current_user.nickname,
             action="comment_delete",
             details={
                 "content": comment["content"],
@@ -615,6 +624,7 @@ def update_deadline(project_id):
         project_id=project_id,
         card_id=None,
         user_id=str(current_user.get_id()),
+        nickname= current_user.nickname,
         action="update_deadline",
         details={
             "old_deadline": project.get('deadline').strftime("%Y-%m-%d") if project.get('deadline') else None,
