@@ -6,6 +6,16 @@ function initializeProjects() {
     return;
   }
 
+  // 소켓 연결 상태 확인
+  console.log("Socket connection status:", socket.connected);
+  socket.on('connect', () => {
+    console.log("Socket connected successfully");
+  });
+
+  socket.on('disconnect', () => {
+    console.log("Socket disconnected");
+  });
+
   socket.on("project_updated", (data) => {
     console.log("프로젝트 업데이트 이벤트 수신:", data);
     const cardEl = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
@@ -75,7 +85,6 @@ function initializeProjects() {
     const div = document.querySelector(`.comment[data-id="${data.comment_id}"]`);
     if (div) div.remove();
   });
-  
 
   // ✅ 삭제/나가기 버튼 클릭 처리 (모달 내에서 이벤트 바인딩)
   const projectBoardModal = document.getElementById('projectBoardModal');
@@ -194,8 +203,12 @@ async function loadComments(projectId) {
         timeStyle: 'short'
       });
       const isMine = comment.author_id === currentUser.id;
+      // 댓글 ID를 문자열로 저장
+      const commentId = comment.id || comment._id;
+      console.log('Loading comment:', { id: commentId, content: comment.content }); // 디버깅용 로그
+      
       list.innerHTML += `
-        <div class="comment mb-2" data-id="${comment._id}">
+        <div class="comment mb-2" data-id="${commentId}">
           <b>${comment.author_name}</b>
           <span style="color:gray; font-size:small;">${formattedTime}</span><br>
           <span class="comment-content">${comment.content}</span>
@@ -204,8 +217,10 @@ async function loadComments(projectId) {
                <img src="${comment.image_url}" class="img-fluid" style="max-height:200px;" />
             </div>` : ""}
           ${isMine ? `
-            <button class="btn btn-sm btn-outline-secondary edit-comment-btn">수정</button>
-            <button class="btn btn-sm btn-outline-danger delete-comment-btn">삭제</button>
+            <div class="mt-1">
+              <button class="btn btn-sm btn-outline-secondary edit-comment-btn" data-comment-id="${commentId}">수정</button>
+              <button class="btn btn-sm btn-outline-danger delete-comment-btn" data-comment-id="${commentId}">삭제</button>
+            </div>
           ` : ""}
         </div>`;
     });
@@ -256,9 +271,32 @@ document.getElementById("createProject").addEventListener("click", async () => {
 document.getElementById('comment-list')?.addEventListener('click', async e => {
   const btn = e.target.closest('button');
   if (!btn) return;
+  
   const commentDiv = btn.closest('.comment');
+  if (!commentDiv) {
+    console.error('Comment div not found');
+    return;
+  }
+
   const commentId = commentDiv.dataset.id;
-  const projectId = document.getElementById('projectBoardModal').dataset.projectId;
+  if (!commentId) {
+    console.error('Comment ID not found in comment div');
+    return;
+  }
+
+  const projectId = document.getElementById('projectBoardModal')?.dataset.projectId;
+  if (!projectId) {
+    console.error('Project ID not found');
+    return;
+  }
+
+  console.log('Comment action:', { 
+    action: btn.classList.contains('edit-comment-btn') ? 'edit' : 
+            btn.classList.contains('save-comment-btn') ? 'save' :
+            btn.classList.contains('delete-comment-btn') ? 'delete' : 'unknown',
+    commentId,
+    projectId
+  });
 
   // 1) 수정 시작
   if (btn.classList.contains('edit-comment-btn')) {
@@ -266,6 +304,7 @@ document.getElementById('comment-list')?.addEventListener('click', async e => {
 
   // 2) 저장
   } else if (btn.classList.contains('save-comment-btn')) {
+    console.log('Save button clicked for comment:', commentId);
     await saveInlineEdit(commentDiv, projectId);
 
   // 3) 취소
@@ -318,66 +357,125 @@ function startInlineEdit(div) {
     rmContainer.className = 'form-check mb-2';
     rmContainer.append(removeCheckbox, removeLabel);
     div.appendChild(rmContainer);
- }
+  }
 
   // 저장/취소 버튼
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'mt-2';
+  
   const saveBtn = document.createElement('button');
   saveBtn.className = 'btn btn-sm btn-primary me-1 save-comment-btn';
   saveBtn.textContent = '저장';
+  saveBtn.type = 'button';  // 명시적으로 type 지정
+  
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'btn btn-sm btn-secondary cancel-comment-btn';
   cancelBtn.textContent = '취소';
-  const btnGroup = document.createElement('div');
-  btnGroup.className = 'mb-2';
+  cancelBtn.type = 'button';  // 명시적으로 type 지정
+  
   btnGroup.append(saveBtn, cancelBtn);
   div.appendChild(btnGroup);
+
+  // textarea에 포커스
+  textarea.focus();
 }
 
 async function saveInlineEdit(div, projectId) {
+  const commentId = div.dataset.id;
+  console.log('Saving comment edit:', { commentId, projectId }); // 디버깅용 로그
+  
+  if (!commentId) {
+    console.error('Comment ID is missing');
+    alert('댓글 ID를 찾을 수 없습니다.');
+    return;
+  }
+
   const textarea = div.querySelector('textarea');
+  if (!textarea) {
+    console.error('Textarea not found');
+    return;
+  }
+
   const newText = textarea.value.trim();
-  if (!newText) return alert('댓글 내용을 입력하세요.');
+  if (!newText) {
+    alert('댓글 내용을 입력하세요.');
+    return;
+  }
 
   const origImg = div.querySelector('img');
   const fileInput = div.querySelector('input[type=file]');
   const removeCheckbox = div.querySelector('.form-check-input');
 
-  let res;
-  if ((fileInput && fileInput.files.length) || (removeCheckbox && removeCheckbox.checked)) {
-    const formData = new FormData();
-    formData.append('content', newText);
-    if (fileInput.files.length) formData.append('image', fileInput.files[0]);
-    if (removeCheckbox.checked) formData.append('delete_image', '1');
-    res = await fetch(`/comments/${div.dataset.id}`, {
-      method: 'PUT',
-      body: formData,
-      credentials: 'include'
-    });
-  } else {
-    res = await fetch(`/comments/${div.dataset.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: newText }),
-      credentials: 'include'
-    });
-  }
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    return alert(err.error || '수정 실패');
-  }
-
-  // UI 업데이트
-  div.querySelector('.comment-content').textContent = newText;
-  if (origImg) {
-    if (removeCheckbox && removeCheckbox.checked) {
-      origImg.remove();
-    } else if (fileInput && fileInput.files.length) {
-      origImg.src = URL.createObjectURL(fileInput.files[0]);
+  try {
+    let res;
+    if ((fileInput && fileInput.files.length) || (removeCheckbox && removeCheckbox.checked)) {
+      const formData = new FormData();
+      formData.append('content', newText);
+      if (fileInput && fileInput.files.length) formData.append('image', fileInput.files[0]);
+      if (removeCheckbox && removeCheckbox.checked) formData.append('delete_image', '1');
+      
+      console.log('Sending form data for comment update:', {
+        commentId,
+        hasNewImage: fileInput && fileInput.files.length > 0,
+        deleteImage: removeCheckbox && removeCheckbox.checked
+      });
+      
+      res = await fetch(`/comments/${commentId}`, {
+        method: 'PUT',
+        body: formData,
+        credentials: 'include'
+      });
+    } else {
+      console.log('Sending JSON data for comment update:', { commentId, content: newText });
+      
+      res = await fetch(`/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newText }),
+        credentials: 'include'
+      });
     }
-    origImg.style.display = '';
+
+    const responseData = await res.json();
+    console.log('Edit response:', responseData); // 디버깅용 로그
+    
+    if (!res.ok) {
+      throw new Error(responseData.message || '댓글 수정 실패');
+    }
+
+    // 소켓 이벤트 발생
+    socket.emit('update_comment', {
+      project_id: projectId,
+      comment_id: commentId,
+      new_content: newText
+    });
+
+    // UI 업데이트
+    const contentSpan = div.querySelector('.comment-content');
+    if (contentSpan) {
+      contentSpan.textContent = newText;
+      contentSpan.style.display = '';
+    }
+
+    if (origImg) {
+      if (removeCheckbox && removeCheckbox.checked) {
+        origImg.remove();
+      } else if (fileInput && fileInput.files.length) {
+        origImg.src = URL.createObjectURL(fileInput.files[0]);
+        origImg.style.display = '';
+      } else {
+        origImg.style.display = '';
+      }
+    }
+
+    // 수정 UI 제거
+    cancelInlineEdit(div);
+    
+    console.log('Comment edit completed successfully');
+  } catch (err) {
+    console.error('Edit comment error:', err);
+    alert(err.message || '댓글 수정 중 오류가 발생했습니다.');
   }
-  cancelInlineEdit(div);
 }
 
 function cancelInlineEdit(div) {
@@ -396,8 +494,44 @@ function cancelInlineEdit(div) {
 }
 
 async function deleteComment(commentId, projectId) {
-  await fetch(`/comments/${commentId}`, { method: 'DELETE', credentials: 'include' });
-  loadComments(projectId);
+  console.log('Deleting comment:', { commentId, projectId }); // 디버깅용 로그
+  
+  if (!commentId) {
+    console.error('Comment ID is missing');
+    alert('댓글 ID를 찾을 수 없습니다.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/comments/${commentId}`, { 
+      method: 'DELETE', 
+      credentials: 'include' 
+    });
+    
+    const responseData = await res.json().catch(() => ({}));
+    console.log('Delete response:', responseData); // 디버깅용 로그
+    
+    if (!res.ok) {
+      throw new Error(responseData.message || '댓글 삭제 실패');
+    }
+
+    // 소켓 이벤트 발생
+    socket.emit('delete_comment', {
+      project_id: projectId,
+      comment_id: commentId
+    });
+
+    // UI에서 댓글 제거
+    const commentDiv = document.querySelector(`.comment[data-id="${commentId}"]`);
+    if (commentDiv) {
+      commentDiv.remove();
+    } else {
+      console.warn('Comment element not found in DOM:', commentId);
+    }
+  } catch (err) {
+    console.error('Delete comment error:', err);
+    alert(err.message || '댓글 삭제 중 오류가 발생했습니다.');
+  }
 }
 
 // ---------------------------------------------------
@@ -429,9 +563,8 @@ if (addCommentBtn) {
       formData.append('image', fileInput.files[0]);
     }
 
-    console.log('FormData image:', formData.get('image')); //test용
-
     try {
+      console.log("Sending comment to server:", { projectId, content });
       const res = await fetch(`/projects/${projectId}/comments`, {
         method: 'POST',
         body: formData,
@@ -444,6 +577,24 @@ if (addCommentBtn) {
         alert(err.error || "댓글 추가 실패");
         return;
       }
+
+      const responseData = await res.json();
+      console.log("Comment added successfully:", responseData);
+      
+      // 소켓 이벤트 발생 수정
+      const commentData = {
+        project_id: projectId,
+        content: content,
+        comment: {
+          _id: responseData.id,
+          author_id: currentUser.id,
+          author_name: currentUser.nickname,
+          content: content,
+          created_at: new Date().toISOString()
+        }
+      };
+      console.log("Emitting create_comment event:", commentData);
+      socket.emit('create_comment', commentData);
 
       // 초기화 및 재로드
       contentInput.value = '';
@@ -559,3 +710,30 @@ function renderCommentHTML(comment) {
 function formatDate(isoString) {
   return new Date(isoString).toLocaleDateString('ko-KR', { dateStyle: 'medium' });
 }
+
+// 소켓 이벤트 리스너 추가
+socket.on('comment_deleted', data => {
+  const div = document.querySelector(`.comment[data-id="${data.comment_id}"]`);
+  if (div) div.remove();
+});
+
+socket.on('comment_updated', data => {
+  const div = document.querySelector(`.comment[data-id="${data.comment_id}"]`);
+  if (!div) return;
+
+  const contentSpan = div.querySelector('.comment-content');
+  if (contentSpan) contentSpan.textContent = data.content;
+
+  let img = div.querySelector('img');
+  if (data.image_url) {
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'img-fluid';
+      div.appendChild(img);
+    }
+    img.src = data.image_url;
+    img.style.maxHeight = '200px';
+  } else {
+    if (img) img.remove();
+  }
+});

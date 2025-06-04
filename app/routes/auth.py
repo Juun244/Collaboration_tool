@@ -185,7 +185,7 @@ def login():
             flash("이메일 인증이 완료되지 않았습니다. 회원가입 시 받은 이메일을 확인하거나 다시 등록해주세요.", "warning")
             return redirect(url_for("auth.resend_verification", email=email))
 
-        from app.main import User
+        from app.__main__ import User
         user = User(user_data)
         login_user(user, remember=remember)
         session["user_id"] = user.id
@@ -340,7 +340,7 @@ def oauth_callback(provider):
         }
         return redirect(url_for("auth.set_nickname"))
 
-    from app.main import User
+    from app.__main__ import User
     user = User(user_data)
     remember = session.get('remember', False)
     login_user(user, remember=remember)
@@ -351,7 +351,7 @@ def oauth_callback(provider):
 
 @auth_bp.route("/set-nickname", methods=["GET", "POST"])
 def set_nickname():
-    from app.main import User
+    from app.__main__ import User
 
     if request.method == "POST":
         nickname = request.form["nickname"].strip()

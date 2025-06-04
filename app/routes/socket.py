@@ -6,6 +6,7 @@ from datetime import datetime
 from bson.objectid import ObjectId
 from app import mongo
 from app.utils.history import log_history
+import os
 
 def register_socket_events(socketio):
     # 타임스탬프를 가져오는 헬퍼 함수
@@ -233,6 +234,23 @@ def register_socket_events(socketio):
         }, room=invitee_nickname)
         print(f"Sending project_invite to room {invitee_nickname}: {{project_id: {project_id}, invitee: {invitee_nickname}}}")
 
+        # 초대받은 사용자에게 알림 전송
+        emit('notification', {
+            'message': f'[{project["name"]}] {current_user.nickname}님이 프로젝트에 초대했습니다.',
+            'type': 'project_invite',
+            'timestamp': datetime.utcnow().isoformat()
+        }, room=invitee_nickname)
+
+        # 프로젝트 멤버들에게 알림 전송
+        for member in project.get('members', []):
+            member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
+            if member_nickname and str(member) != inviter_id:  # 초대한 사람을 제외한 멤버들에게만 알림
+                emit('notification', {
+                    'message': f'[{project["name"]}] {current_user.nickname}님이 {invitee_nickname}님을 프로젝트에 초대했습니다.',
+                    'type': 'project_invite',
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=member_nickname)
+
     # 'respond_invite' 이벤트 핸들러
     @socketio.on('respond_invite')
     @login_required
@@ -346,6 +364,16 @@ def register_socket_events(socketio):
             }
         )
 
+        # 프로젝트 멤버들에게 알림 전송
+        for member in project.get('members', []):
+            member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
+            if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
+                emit('notification', {
+                    'message': f'[{project["name"]}] {current_user.nickname}님이 새로운 카드를 생성했습니다: {card_title}',
+                    'type': 'card_created',
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=member_nickname)
+
         emit('card_created', {
             'project_id': project_id,
             'card_id': card_id,
@@ -353,8 +381,7 @@ def register_socket_events(socketio):
             'user_id': user_id,
             'nickname': current_user.nickname,
             'timestamp': timestamp
-        }, room= project_id, include_self=True)
-        print(f"card_created이벤트 전송: room : {project_id}")
+        }, room=project_id, include_self=True)
 
     # 'delete_card' 이벤트 핸들러
     @socketio.on('delete_card')
@@ -387,6 +414,16 @@ def register_socket_events(socketio):
             action='card_delete',
             details={'title': card['title']}
         )
+
+        # 프로젝트 멤버들에게 알림 전송
+        for member in project.get('members', []):
+            member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
+            if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
+                emit('notification', {
+                    'message': f'[{project["name"]}] {current_user.nickname}님이 카드를 삭제했습니다: {card["title"]}',
+                    'type': 'card_deleted',
+                    'timestamp': datetime.utcnow().isoformat()
+                }, room=member_nickname)
 
         mongo.db.cards.delete_one({'_id': ObjectId(card_id)})
         emit('card_deleted', {
@@ -456,6 +493,25 @@ def register_socket_events(socketio):
                 action='card_update',
                 details=changes
             )
+
+            # 프로젝트 멤버들에게 알림 전송
+            for member in project.get('members', []):
+                member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
+                if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
+                    change_messages = []
+                    if 'title' in changes:
+                        change_messages.append(f'제목: {changes["title"]["from"]} → {changes["title"]["to"]}')
+                    if 'status' in changes:
+                        status_map = {'todo': 'To Do', 'in_progress': 'In Progress', 'done': 'Done'}
+                        from_status = status_map.get(changes['status']['from'], changes['status']['from'])
+                        to_status = status_map.get(changes['status']['to'], changes['status']['to'])
+                        change_messages.append(f'상태: {from_status} → {to_status}')
+                    
+                    emit('notification', {
+                        'message': f'[{project["name"]}] {current_user.nickname}님이 카드를 수정했습니다: {card["title"]}\n변경사항: {", ".join(change_messages)}',
+                        'type': 'card_updated',
+                        'timestamp': datetime.utcnow().isoformat()
+                    }, room=member_nickname)
 
         mongo.db.cards.update_one(
             {'_id': ObjectId(card_id)},
@@ -589,33 +645,32 @@ def register_socket_events(socketio):
     @socketio.on('create_comment')
     @login_required
     def handle_create_comment(data):
+        print(f"Received create_comment event: {data}")
         project_id = str(data.get('project_id'))
-        card_id = str(data.get('card_id'))
         content = data.get('content')
         user_id = str(current_user.get_id())
         timestamp = get_timestamp()
 
+        print(f"Processing comment creation: project_id={project_id}, user_id={user_id}")
+
         project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
         if not project:
+            print(f"Project not found: {project_id}")
             emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
             return
 
         if ObjectId(user_id) not in project.get('members', []):
+            print(f"User {user_id} is not a member of project {project_id}")
             emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
             return
 
-        card = mongo.db.cards.find_one({'_id': ObjectId(card_id), 'project_id': ObjectId(project_id)})
-        if not card:
-            emit('notice', {'msg': '카드를 찾을 수 없습니다.', 'card_id': card_id}, to=request.sid)
-            return
-
         if not content:
-            emit('notice', {'msg': '댓글 내용이 필요합니다.', 'card_id': card_id}, to=request.sid)
+            print("Comment content is empty")
+            emit('notice', {'msg': '댓글 내용이 필요합니다.'}, to=request.sid)
             return
 
         new_comment = {
             'project_id': ObjectId(project_id),
-            'card_id': ObjectId(card_id),
             'author_id': ObjectId(user_id),
             'author_name': current_user.nickname,
             'content': content,
@@ -624,22 +679,28 @@ def register_socket_events(socketio):
 
         result = mongo.db.comments.insert_one(new_comment)
         comment_id = str(result.inserted_id)
+        print(f"Comment created with ID: {comment_id}")
 
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            action='comment_create',
-            details={
-                'content': content,
-                'card_title': card['title']
-            }
-        )
+        # 프로젝트 멤버들에게 알림 전송
+        members = project.get('members', [])
+        print(f"Sending notifications to {len(members)} members")
+        
+        for member in members:
+            member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
+            if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
+                print(f"Sending notification to member: {member_nickname}")
+                emit('notification', {
+                    'message': f'[{project["name"]}] {current_user.nickname}님이 새로운 댓글을 달았습니다.',
+                    'type': 'new_comment',
+                    'project_id': project_id,
+                    'project_name': project['name'],
+                    'author_name': current_user.nickname,
+                    'timestamp': datetime.utcnow().isoformat() # ISO 8601 형식으로 전송
+                }, room=member_nickname)
 
+        # 댓글 생성 이벤트 전송
         emit('comment_created', {
             'project_id': project_id,
-            'card_id': card_id,
             'comment_id': comment_id,
             'content': content,
             'user_id': user_id,
@@ -652,8 +713,8 @@ def register_socket_events(socketio):
     @login_required
     def handle_delete_comment(data):
         project_id = str(data.get('project_id'))
-        card_id = str(data.get('card_id'))
         comment_id = str(data.get('comment_id'))
+        card_id = str(data.get('card_id')) if data.get('card_id') else None
         user_id = str(current_user.get_id())
         timestamp = get_timestamp()
 
@@ -666,12 +727,12 @@ def register_socket_events(socketio):
             emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
             return
 
-        card = mongo.db.cards.find_one({'_id': ObjectId(card_id), 'project_id': ObjectId(project_id)})
-        if not card:
-            emit('notice', {'msg': '카드를 찾을 수 없습니다.', 'card_id': card_id}, to=request.sid)
-            return
+        # 댓글 쿼리 조건 설정
+        comment_query = {'_id': ObjectId(comment_id), 'project_id': ObjectId(project_id)}
+        if card_id:
+            comment_query['card_id'] = ObjectId(card_id)
 
-        comment = mongo.db.comments.find_one({'_id': ObjectId(comment_id), 'card_id': ObjectId(card_id)})
+        comment = mongo.db.comments.find_one(comment_query)
         if not comment:
             emit('notice', {'msg': '댓글을 찾을 수 없습니다.', 'comment_id': comment_id}, to=request.sid)
             return
@@ -695,13 +756,12 @@ def register_socket_events(socketio):
             action='comment_delete',
             details={
                 'content': comment['content'],
-                'card_title': card['title']
+                'project_name': project['name']
             }
         )
 
         emit('comment_deleted', {
             'project_id': project_id,
-            'card_id': card_id,
             'comment_id': comment_id,
             'user_id': user_id,
             'nickname': current_user.nickname,
@@ -713,8 +773,8 @@ def register_socket_events(socketio):
     @login_required
     def handle_update_comment(data):
         project_id = str(data.get('project_id'))
-        card_id = str(data.get('card_id'))
         comment_id = str(data.get('comment_id'))
+        card_id = str(data.get('card_id')) if data.get('card_id') else None
         new_content = data.get('new_content')
         user_id = str(current_user.get_id())
         timestamp = get_timestamp()
@@ -728,12 +788,12 @@ def register_socket_events(socketio):
             emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
             return
 
-        card = mongo.db.cards.find_one({'_id': ObjectId(card_id), 'project_id': ObjectId(project_id)})
-        if not card:
-            emit('notice', {'msg': '카드를 찾을 수 없습니다.', 'card_id': card_id}, to=request.sid)
-            return
+        # 댓글 쿼리 조건 설정
+        comment_query = {'_id': ObjectId(comment_id), 'project_id': ObjectId(project_id)}
+        if card_id:
+            comment_query['card_id'] = ObjectId(card_id)
 
-        comment = mongo.db.comments.find_one({'_id': ObjectId(comment_id), 'card_id': ObjectId(card_id)})
+        comment = mongo.db.comments.find_one(comment_query)
         if not comment:
             emit('notice', {'msg': '댓글을 찾을 수 없습니다.', 'comment_id': comment_id}, to=request.sid)
             return
@@ -760,15 +820,14 @@ def register_socket_events(socketio):
             details={
                 'old_content': comment['content'],
                 'new_content': new_content,
-                'card_title': card['title']
+                'project_name': project['name']
             }
         )
 
         emit('comment_updated', {
             'project_id': project_id,
-            'card_id': card_id,
             'comment_id': comment_id,
-            'new_content': new_content,
+            'content': new_content,
             'user_id': user_id,
             'nickname': current_user.nickname,
             'timestamp': timestamp
