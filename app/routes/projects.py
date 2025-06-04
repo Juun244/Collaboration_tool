@@ -357,8 +357,9 @@ def get_history(project_id):
 @projects_bp.route("/projects/<project_id>/comments", methods=["GET"])
 @login_required
 def get_comments(project_id):
-    oid = safe_object_id(project_id)
-    if not oid:
+    try:
+        oid = ObjectId(project_id)
+    except:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
     project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
@@ -370,11 +371,11 @@ def get_comments(project_id):
     result = []
     for c in comments:
         item = {
-            "id": str(c["_id"]),
+            "_id": str(c["_id"]),
             "author_id": str(c["author_id"]),
             "author_name": c["author_name"],
             "content": c["content"],
-            "created_at": c["created_at"].strftime("%H:%M:%S")
+            "created_at": c["created_at"].strftime("%Y-%m-%d %H:%M:%S")
         }
         if c.get("image_filename"):
             item["image_url"] = url_for('static', filename=f"uploads/{c['image_filename']}")
@@ -441,8 +442,12 @@ def add_comment(project_id):
 @projects_bp.route("/comments/<comment_id>", methods=["PUT"])
 @login_required
 def edit_comment(comment_id):
-    oid = safe_object_id(comment_id)
-    if not oid:
+    logger.info(f"Attempting to edit comment: {comment_id}")
+    
+    try:
+        oid = ObjectId(comment_id)
+    except Exception as e:
+        logger.error(f"Invalid comment ID format: {comment_id}, error: {str(e)}")
         return jsonify({"message": "유효하지 않은 댓글 ID입니다."}), 400
 
     comment = mongo.db.comments.find_one({"_id": oid})
@@ -474,54 +479,63 @@ def edit_comment(comment_id):
     if not content:
         return jsonify({"message": "댓글 내용이 필요합니다."}), 400
 
-    upload_dir = os.path.join(current_app.static_folder, "Uploads")
-    if delete_image and comment.get("image_filename"):
-        old_path = os.path.join(upload_dir, comment["image_filename"])
-        if os.path.exists(old_path):
-            os.remove(old_path)
-        mongo.db.comments.update_one(
-            {"_id": oid},
-            {"$unset": {"image_filename": ""}}
-        )
-
-    if new_file and new_file.filename:
-        if comment.get("image_filename"):
+    try:
+        upload_dir = os.path.join(current_app.static_folder, "Uploads")
+        if delete_image and comment.get("image_filename"):
             old_path = os.path.join(upload_dir, comment["image_filename"])
             if os.path.exists(old_path):
                 os.remove(old_path)
-        ext = os.path.splitext(new_file.filename)[1]
-        image_filename = f"{uuid.uuid4().hex}{ext}"
-        new_file.save(os.path.join(upload_dir, image_filename))
+            mongo.db.comments.update_one(
+                {"_id": oid},
+                {"$unset": {"image_filename": ""}}
+            )
+
+        if new_file and new_file.filename:
+            if comment.get("image_filename"):
+                old_path = os.path.join(upload_dir, comment["image_filename"])
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+            ext = os.path.splitext(new_file.filename)[1]
+            image_filename = f"{uuid.uuid4().hex}{ext}"
+            new_file.save(os.path.join(upload_dir, image_filename))
+            mongo.db.comments.update_one(
+                {"_id": oid},
+                {"$set": {"image_filename": image_filename}}
+            )
+
         mongo.db.comments.update_one(
             {"_id": oid},
-            {"$set": {"image_filename": image_filename}}
+            {"$set": {"content": content}}
         )
 
-    mongo.db.comments.update_one(
-        {"_id": oid},
-        {"$set": {"content": content}}
-    )
+        log_history(
+            mongo=mongo,
+            project_id=str(comment["project_id"]),
+            card_id=None,
+            user_id=str(current_user.get_id()),
+            action="comment_update",
+            details={
+                "old_content": comment["content"],
+                "new_content": content,
+                "project_name": project["name"]
+            }
+        )
 
-    log_history(
-        mongo=mongo,
-        project_id=str(comment["project_id"]),
-        card_id=None,
-        user_id=str(current_user.get_id()),
-        action="comment_update",
-        details={
-            "old_content": comment["content"],
-            "new_content": content,
-            "project_name": project["name"]
-        }
-    )
-
-    return jsonify({"message": "댓글이 수정되었습니다."}), 200
+        logger.info(f"Successfully updated comment: {comment_id}")
+        return jsonify({"message": "댓글이 수정되었습니다."}), 200
+    except Exception as e:
+        logger.error(f"Error updating comment {comment_id}: {str(e)}")
+        return jsonify({"message": "댓글 수정 중 오류가 발생했습니다."}), 500
 
 @projects_bp.route("/comments/<comment_id>", methods=["DELETE"])
 @login_required
 def delete_comment(comment_id):
-    oid = safe_object_id(comment_id)
-    if not oid:
+    logger.info(f"Attempting to delete comment: {comment_id}")
+    
+    try:
+        oid = ObjectId(comment_id)
+    except Exception as e:
+        logger.error(f"Invalid comment ID format: {comment_id}, error: {str(e)}")
         return jsonify({"message": "유효하지 않은 댓글 ID입니다."}), 400
 
     comment = mongo.db.comments.find_one({"_id": oid})
@@ -538,26 +552,31 @@ def delete_comment(comment_id):
         logger.error(f"User {current_user.get_id()} has no permission to delete comment: {comment_id}")
         return jsonify({"message": "댓글 삭제 권한이 없습니다."}), 403
 
-    if comment.get("image_filename"):
-        file_path = os.path.join(current_app.static_folder, "Uploads", comment["image_filename"])
-        if os.path.exists(file_path):
-            os.remove(file_path)
+    try:
+        if comment.get("image_filename"):
+            file_path = os.path.join(current_app.static_folder, "Uploads", comment["image_filename"])
+            if os.path.exists(file_path):
+                os.remove(file_path)
 
-    mongo.db.comments.delete_one({"_id": oid})
+        mongo.db.comments.delete_one({"_id": oid})
 
-    log_history(
-        mongo=mongo,
-        project_id=str(comment["project_id"]),
-        card_id=None,
-        user_id=str(current_user.get_id()),
-        action="comment_delete",
-        details={
-            "content": comment["content"],
-            "project_name": project["name"]
-        }
-    )
+        log_history(
+            mongo=mongo,
+            project_id=str(comment["project_id"]),
+            card_id=None,
+            user_id=str(current_user.get_id()),
+            action="comment_delete",
+            details={
+                "content": comment["content"],
+                "project_name": project["name"]
+            }
+        )
 
-    return jsonify({"message": "댓글이 삭제되었습니다."}), 200
+        logger.info(f"Successfully deleted comment: {comment_id}")
+        return jsonify({"message": "댓글이 삭제되었습니다."}), 200
+    except Exception as e:
+        logger.error(f"Error deleting comment {comment_id}: {str(e)}")
+        return jsonify({"message": "댓글 삭제 중 오류가 발생했습니다."}), 500
 
 @projects_bp.route('/projects/<project_id>/deadline', methods=['PUT'])
 @login_required
