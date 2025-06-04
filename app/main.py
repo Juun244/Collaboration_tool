@@ -18,7 +18,8 @@ load_dotenv()
 
 # Flask 앱 설정
 app = Flask(__name__)
-app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+#app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+app.config["MONGO_URI"] = os.getenv('DB_STRING')
 app.secret_key = os.getenv('SECRET_KEY')
 
 # 🔐 Flask-Mail 설정
