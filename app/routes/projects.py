@@ -483,7 +483,7 @@ def edit_comment(comment_id):
         delete_image = request.form.get("delete_image") == "1"
         new_file = request.files.get("image")
 
-    if not content:
+    if not content and not delete_image and not (new_file and new_file.filename):
         return jsonify({"message": "댓글 내용이 필요합니다."}), 400
 
     try:
