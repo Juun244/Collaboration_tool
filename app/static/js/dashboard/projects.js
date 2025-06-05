@@ -6,16 +6,6 @@ function initializeProjects() {
     return;
   }
 
-  // 소켓 연결 상태 확인
-  console.log("Socket connection status:", socket.connected);
-  socket.on('connect', () => {
-    console.log("Socket connected successfully");
-  });
-
-  socket.on('disconnect', () => {
-    console.log("Socket disconnected");
-  });
-
   socket.on("project_updated", (data) => {
     console.log("프로젝트 업데이트 이벤트 수신:", data);
     const cardEl = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
@@ -127,7 +117,18 @@ function initializeProjects() {
           if (response.ok) {
             const data = await response.json(); // ✅ 한 번만 json() 호출
             alert(data.message || `프로젝트가 ${action}되었습니다.`);
-            window.location.reload();
+
+            // ✅ 1. 모달 닫기
+            const bsModal = bootstrap.Modal.getInstance(projectBoardModal);
+            bsModal.hide();
+
+            // ✅ 2. 프로젝트 카드 제거 (애니메이션 포함)
+            const wrapper = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
+            if (wrapper) {
+              wrapper.classList.add("fade-out");
+              setTimeout(() => wrapper.remove(), 300);
+            }
+
           } else {
             const error = await response.json().catch(() => ({}));
             console.error(`Failed to ${action} project:`, error);
@@ -247,15 +248,15 @@ document.getElementById("createProject").addEventListener("click", async () => {
         body: JSON.stringify(data)
       });
       if (response.ok) {
+        const project = await response.json();
+        appendProjectCard(project);
         alert("프로젝트가 생성되었습니다!");
 
         // 🔧 모달 닫기 안전 처리
         const modalElement = document.getElementById("newProjectModal");
         const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
         modalInstance.hide();
-
         form.reset();
-        window.location.reload();
       } else {
         const error = await response.json();
         alert(error.message || "프로젝트 생성 실패");
@@ -634,19 +635,50 @@ if (projectBoardModal) {
 } else {
   console.error("projectBoardModal element not found");
 }
+}
 
-function createProjectCardHTML(project) {
-  return `
-    <div class="project-card-wrapper" data-project-id="${project._id}">
-      <div class="card border-primary mb-3" style="max-width: 18rem;">
-        <div class="card-header">${project.title}</div>
-        <div class="card-body text-primary">
-          <h5 class="card-title">${project.description}</h5>
-          <p class="card-text">마감일: <span class="due-date">${formatDate(project.due_date)}</span></p>
-        </div>
+function appendProjectCard(project) {
+  const container = document.querySelector('.project-scroll-container');
+  if (!container) return console.error('Project container not found');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'project-card-wrapper';
+  wrapper.dataset.projectId = project._id;
+  wrapper.dataset.ownerId = project.owner;
+  wrapper.dataset.deadline = project.deadline || '';
+  wrapper.dataset.dDay = project.d_day || '';
+
+  // 카드 내부 구성
+  wrapper.innerHTML = `
+    <div class="card project-card h-100 position-relative">
+      <div class="card-body">
+        <h5 class="card-title">${project.name}</h5>
+        <p class="card-text truncate-description">${project.description || ''}</p>
+
+        <div class="card-container mt-3" data-project-id="${project._id}"></div>
+        <span class="member-count" data-members="${project.members?.length || 0}">
+          ${project.members?.length || 0} members
+        </span>
+        <button class="btn add-card-btn mt-2 w-100"
+                data-project-id="${project._id}">
+          <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
+        </button>
       </div>
+
+      <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2"
+              data-project-id="${project._id}">
+        <i class="bi bi-person-plus"></i> Invite
+      </button>
+
+      <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
+              data-project-id="${project._id}"
+              data-project-name="${project.name}">
+        <i class="bi bi-chat-dots"></i> Chat
+      </button>
     </div>
   `;
+
+  container.prepend(wrapper);
 }
 
 function renderCommentHTML(comment) {

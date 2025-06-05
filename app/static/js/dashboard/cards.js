@@ -26,7 +26,7 @@ function initializeCards() {
         card_title: formData.get("title"),
         description: formData.get("description"),
         status: formData.get("status") || "todo",
-        project_id: window.currentProjectId
+        project_id: formData.get('projectId') || window.currentProjectId
       };
 
       console.log("카드 생성 데이터:", data); // 디버깅 로그

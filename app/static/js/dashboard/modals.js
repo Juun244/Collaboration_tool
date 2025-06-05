@@ -8,38 +8,57 @@ function initializeModals() {
 
   console.log("initializeModals 호출됨"); // 디버깅 로그
 
-  // 초대 모달 열기
-  document.querySelectorAll(".invite-member").forEach(button => {
-    button.addEventListener("click", e => {
-      e.stopPropagation();
-      const projectId = button.dataset.projectId;
-      document.getElementById("inviteProjectId").value = projectId;
-      new bootstrap.Modal(document.getElementById("inviteMemberModal")).show();
-    });
+  // 카드 추가 버튼 클릭 이벤트 위임
+  document.addEventListener('click', e => {
+    const addBtn = e.target.closest('.add-card-btn');
+    if (!addBtn) return;
+
+    e.stopPropagation();
+    const projectId = addBtn.dataset.projectId;
+    const status = addBtn.dataset.status;
+
+    const modalElem = document.getElementById("createCardModal");
+    const form = modalElem.querySelector('#createCardForm');
+
+    // projectId 숨겨진 input에 값 할당
+    form.projectId.value = projectId;
+
+    // status select 기본값 세팅
+    form.status.value = status;
+
+    new bootstrap.Modal(modalElem).show();
   });
 
-  // 카드 생성 모달 열기
-  document.querySelectorAll(".add-card-btn").forEach(button => {
-    button.addEventListener("click", () => {
-      window.currentProjectId = button.dataset.projectId;
-      console.log("카드 생성 모달 열기, projectId:", window.currentProjectId); // 디버깅 로그
-      new bootstrap.Modal(document.getElementById("createCardModal")).show();
-    });
+
+  // 초대 모달 열기
+  document.addEventListener("click", e => {
+    const button = e.target.closest(".invite-member");
+    if (!button) return;
+
+    e.stopPropagation(); // 카드 클릭 이벤트 방지
+    const projectId = button.dataset.projectId;
+    const inputElem = document.getElementById("inviteProjectId");
+
+    if (!projectId || !inputElem) return;
+
+    inputElem.value = projectId;
+    new bootstrap.Modal(document.getElementById("inviteMemberModal")).show();
   });
 
   // 프로젝트 보드 모달 열기
   document.addEventListener('click', async function(e) {
     const card = e.target.closest('.project-card');
     if (!card ||
-        e.target.closest(".invite-member, .delete-project, .leave-project, .add-card-btn")
+        e.target.closest(".invite-member, .open-chat-btn, .add-card-btn")
     ) return;
 
     // wrapper, projectId, modal title/데이터 세팅
     const wrapper = card.closest('.project-card-wrapper');
     window.currentProjectId = wrapper.dataset.projectId;
     document.getElementById("projectBoardModal").dataset.projectId = window.currentProjectId;
-    document.getElementById("projectBoardTitle").textContent =
-      card.querySelector(".card-title").textContent;
+    document.getElementById("projectBoardTitle").textContent = card.querySelector(".card-title").textContent;
+    document.getElementById("modalDeleteBtn").dataset.projectId = window.currentProjectId;
+    document.getElementById("modalLeaveBtn").dataset.projectId  = window.currentProjectId;
 
     // modalDeadline, modalDday 세팅
     const deadlineText = wrapper.dataset.deadline || '';
