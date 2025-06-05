@@ -473,3 +473,46 @@ body {
   min-width: 250px;
   flex: 0 0 auto;
 }
+
+/* 알림 스타일 */
+.notification-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item .badge {
+    font-size: 0.75rem;
+}
+
+#notificationsList {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.notification-badge {
+    font-size: 0.75rem;
+    transform: translate(-50%, -50%);
+}
+
+#notificationsToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#notificationsToggle i {
+    font-size: 1.1rem;
+}

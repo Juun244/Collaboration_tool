@@ -20,6 +20,17 @@
                 <a href="{{ url_for('auth.my_page') }}" class="text-decoration-none text-dark">Account Settings</a>
             </li>
             <li class="list-group-item">
+                <a href="#" class="text-decoration-none text-dark position-relative" id="notificationsToggle">
+                    <i class="bi bi-bell"></i> 알림
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" style="display: none;">
+                        0
+                    </span>
+                </a>
+                <div id="notificationsList" class="list-group mt-2" style="display: none;">
+                    <!-- 알림 목록이 여기에 동적으로 추가됩니다 -->
+                </div>
+            </li>
+            <li class="list-group-item">
                 <a href="#" class="text-decoration-none text-dark" id="toggleInvitations">
                     Invitations <i class="bi bi-chevron-down float-end"></i>
                 </a>
@@ -121,6 +132,7 @@
     <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard/notifications.js') }}"></script>
     <script> window.currentUserNickname = "{{ user.nickname }}"; </script>
 
 </body>
