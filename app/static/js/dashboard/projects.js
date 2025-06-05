@@ -342,6 +342,7 @@ function startInlineEdit(div) {
 async function saveInlineEdit(div, projectId) {
   const textarea = div.querySelector('textarea');
   const newText = textarea.value.trim();
+  
   const fileInput = div.querySelector('input[type=file]');
   const hasImage = fileInput && fileInput.files.length > 0;
   // "이미지"가 없는 상태: (X버튼 눌려서 <img>없고, 파일input 보임)
