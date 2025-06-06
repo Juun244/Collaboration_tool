@@ -93,6 +93,9 @@ function initializeModals() {
     // 2) 수정 버튼 클릭 시, 임시 date input 생성
     const editBtn = document.getElementById("editDeadlineBtn");
     editBtn.onclick = () => {
+
+      if (editBtn.parentNode.querySelector('input[type="date"]')) return; // 중복생성 방지 
+
       // input 요소 만들고 버튼 옆에 붙이기
       const tmp = document.createElement('input');
       tmp.type  = 'date';
