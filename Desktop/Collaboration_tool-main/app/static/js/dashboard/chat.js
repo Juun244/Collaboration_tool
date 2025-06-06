@@ -1,43 +1,24 @@
-const socket = io();
 const chatInstances = new Map();
+// 채팅 버튼 클릭 이벤트(이벤트 위임 적용)
+document.addEventListener("click", e => {
+  const button = e.target.closest(".open-chat-btn");
+  if (!button) return;
 
-// Socket.IO 연결 상태 디버깅
-socket.on("connect", () => {
-  console.log("Socket.IO connected");
-});
-socket.on("connect_error", (err) => {
-  console.error("Socket.IO connection error:", err);
+  e.stopPropagation(); // 카드 클릭 이벤트 방지
+  const projectId = button.dataset.projectId;
+  const projectName = button.dataset.projectName;
+
+  if (!projectId) {
+    console.error("projectId not found on button:", button);
+    return;
+  }
+
+  console.log("Opening chat for project:", projectId);
+  openChat(projectId, projectName);
 });
 
 // DOMContentLoaded 이벤트에서 버튼 및 모달 이벤트 설정
 document.addEventListener("DOMContentLoaded", () => {
-  const buttons = document.querySelectorAll(".open-chat-btn");
-  if (buttons.length === 0) {
-    console.warn("No .open-chat-btn elements found");
-  }
-  buttons.forEach(button => {
-    button.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const projectId = button.dataset.projectId;
-      const projectName = button.dataset.projectName;
-      if (!projectId) {
-        console.error("projectId not found on button:", button);
-        return;
-      }
-      console.log("Opening chat for project:", projectId);
-      openChat(projectId,projectName);
-    });
-  });
-
-  const openChatBtn = document.getElementById("openChatBtn");
-  if (openChatBtn) {
-    openChatBtn.addEventListener("click", () => {
-      console.log("Opening default chat for project1");
-      openChat("project1");
-    });
-  } else {
-    console.warn("openChatBtn not found");
-  }
 
   // 모달 이벤트 감지
   const projectBoardModal = document.getElementById("projectBoardModal");
@@ -280,7 +261,7 @@ function openChat(projectId,projectName) {
   });
 
   console.log("Joining room for project:", projectId);
-  socket.emit("join", { project_id: projectId }, (response) => {
+  socket.emit("join", projectId , (response) => {
     console.log(`Server response for join ${projectId}:`, response);
   });
 }
@@ -311,7 +292,7 @@ function appendSystemMessage(projectId, msg) {
   console.log("Appending system message to project:", projectId, msg);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
   if (!chatMessages) {
-    console.error(`chatMessages-${projectId} not found`);
+    //console.error(`chatMessages-${projectId} not found`);
     return;
   }
   const div = document.createElement("div");

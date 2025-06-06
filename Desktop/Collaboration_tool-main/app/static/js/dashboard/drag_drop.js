@@ -29,67 +29,85 @@ function initializeDragAndDrop() {
   });
 
   // 프로젝트 드래그 설정
-  const cards = container.querySelectorAll(".project-card-wrapper");
-  cards.forEach(card => {
-    card.addEventListener("mousedown", e => {
-      if (e.target.closest('.task-card')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      startX = e.clientX;
-      startY = e.clientY;
+  // 프로젝트 카드 드래그 앤 드롭 관련 변수
+  let isDragging = false;
+  let dragged = null;
+  let dragClone = null;
+  let dragTimer = null;
+  let scrollAnimationFrame = null;
+  let startX = 0;
+  let startY = 0;
+  let wasDragging = false;
 
-      dragTimer = setTimeout(() => {
-        startProjectDrag(card, e.clientX, e.clientY);
-      }, 200);
-    });
+  // 이벤트 위임으로 드래그 시작 처리
+  container.addEventListener('mousedown', e => {
+    const cardWrapper = e.target.closest('.project-card-wrapper');
+    if (!cardWrapper) return;
 
-    card.addEventListener("mousemove", e => {
-      if (isDragging && dragged) {
-        e.preventDefault();
-        handleProjectDrag(e.clientX, e.clientY);
-      }
-    });
+    // task-card 내부 클릭 시 드래그 방지
+    if (e.target.closest('.task-card')) return;
 
-    card.addEventListener("mouseup", () => {
-      clearTimeout(dragTimer);
-      if (isDragging) {
-        endProjectDrag();
-      }
-    });
+    e.preventDefault();
+    e.stopPropagation();
 
-    card.addEventListener("mouseleave", () => {
-      clearTimeout(dragTimer);
-    });
+    startX = e.clientX;
+    startY = e.clientY;
 
-    card.addEventListener("touchstart", e => {
-      if (e.target.closest('.task-card')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const touch = e.touches[0];
-      startX = touch.clientX;
-      startY = touch.clientY;
-
-      dragTimer = setTimeout(() => {
-        startProjectDrag(card, touch.clientX, touch.clientY);
-      }, 300);
-    });
-
-    card.addEventListener("touchmove", e => {
-      if (isDragging && dragged) {
-        e.preventDefault();
-        const touch = e.touches[0];
-        handleProjectDrag(touch.clientX, touch.clientY);
-      }
-    });
-
-    card.addEventListener("touchend", () => {
-      clearTimeout(dragTimer);
-      if (isDragging) {
-        endProjectDrag();
-      }
-    });
+    dragTimer = setTimeout(() => {
+      startProjectDrag(cardWrapper, e.clientX, e.clientY);
+    }, 200);
   });
 
+  container.addEventListener('mousemove', e => {
+    if (isDragging && dragged) {
+      e.preventDefault();
+      handleProjectDrag(e.clientX, e.clientY);
+    }
+  });
+
+  container.addEventListener('mouseup', e => {
+    clearTimeout(dragTimer);
+    if (isDragging) {
+      endProjectDrag();
+    }
+  });
+
+  container.addEventListener('mouseleave', e => {
+    clearTimeout(dragTimer);
+  });
+
+  container.addEventListener('touchstart', e => {
+    const cardWrapper = e.target.closest('.project-card-wrapper');
+    if (!cardWrapper) return;
+    if (e.target.closest('.task-card')) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+
+    dragTimer = setTimeout(() => {
+      startProjectDrag(cardWrapper, touch.clientX, touch.clientY);
+    }, 300);
+  });
+
+  container.addEventListener('touchmove', e => {
+    if (isDragging && dragged) {
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleProjectDrag(touch.clientX, touch.clientY);
+    }
+  });
+
+  container.addEventListener('touchend', e => {
+    clearTimeout(dragTimer);
+    if (isDragging) {
+      endProjectDrag();
+    }
+  });
+  // 드래그 관련 함수들
   function startProjectDrag(card, x, y) {
     if (isDragging) return;
     isDragging = true;
@@ -177,10 +195,25 @@ function initializeDragAndDrop() {
     }, 100);
   }
 
-  function saveProjectOrder() {
+  async function saveProjectOrder() {
     const order = Array.from(container.querySelectorAll(".project-card-wrapper"))
       .map(card => card.getAttribute("data-project-id"));
-    localStorage.setItem("projectOrder", JSON.stringify(order));
+
+    localStorage.setItem("projectOrder", JSON.stringify(order)); // 선택사항
+
+    try {
+      const response = await fetch("/projects/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ order })
+      });
+      if (!response.ok) {
+        console.error("프로젝트 순서 저장 실패:", response.status);
+      }
+    } catch (err) {
+      console.error("순서 저장 중 오류:", err);
+    }
   }
 
   // 카드 드래그 앤 드롭 설정
@@ -305,6 +338,12 @@ function initializeDragAndDrop() {
         credentials: 'include',
         body: JSON.stringify(payload)
       });
+      socket.emit('card_moved', {
+        card_id: cardId,
+        source_project_id: sourceProjectId,
+        target_project_id: targetProjectId,
+        order
+      });
 
       let errorData = null;
       try {
@@ -365,4 +404,22 @@ function handleCardDragEnd(e) {
     container.classList.remove('drag-over');
   });
   draggedCard = null;
+}
+
+socket.on("card_moved", data => {
+  console.log("Card moved event received:", data);
+  const { source_project_id, target_project_id } = data;
+  const currentProjectIds = getVisibleProjectIds(); // 화면에 보이는 프로젝트 목록
+
+  if (currentProjectIds.includes(source_project_id)) {
+    loadCards(source_project_id);
+  }
+  if (currentProjectIds.includes(target_project_id)) {
+    loadCards(target_project_id);
+  }
+});
+
+function getVisibleProjectIds() {
+  return Array.from(document.querySelectorAll(".card-container"))
+    .map(el => el.dataset.projectId);
 }

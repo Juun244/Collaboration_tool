@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchButton = document.querySelector('[data-bs-target="#searchModal"]');
   if (searchButton) {
     searchButton.addEventListener('click', () => {
-      console.log('Search button clicked, opening search modal');
+      console.log('검색 버튼 클릭, 검색 모달 열기');
     });
   }
 
@@ -22,17 +22,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 하이라이트 적용 함수
   function applyHighlight(element) {
     if (!element) {
-      console.warn('Highlight element not found');
+      console.warn('하이라이트 요소를 찾을 수 없음');
       return;
     }
-    // 기존 하이라이트 제거
     document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
     element.classList.add('highlight');
-    console.log('Highlight applied to:', element);
+    console.log('하이라이트 적용:', element);
     setTimeout(() => {
       if (element.classList.contains('highlight')) {
         element.classList.remove('highlight');
-        console.log('Highlight removed from:', element);
+        console.log('하이라이트 제거:', element);
       }
     }, 2000); // 2초 후 제거
   }
@@ -57,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
         li.innerHTML = `
           <strong>${project.name}</strong>
           <p class="mb-0 text-muted">${project.description || '설명 없음'}</p>
+          <small class="text-muted">마감일: ${project.due_date || '미설정'}</small>
         `;
         li.addEventListener('click', () => {
           const searchModal = bootstrap.Modal.getInstance(document.getElementById('searchModal'));
@@ -64,14 +64,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const projectElement = document.querySelector(`.project-card-wrapper[data-project-id="${project.id}"]`);
           if (projectElement) {
             projectElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // 렌더링 후 하이라이트
             requestAnimationFrame(() => {
               applyHighlight(projectElement);
             });
           } else {
-            console.warn(`Project element not found: ${project.id}`);
+            console.warn(`프로젝트 요소를 찾을 수 없음: ${project.id}`);
           }
-          console.log(`Clicked project: ${project.name}`);
+          console.log(`클릭한 프로젝트: ${project.name}`);
         });
         projectList.appendChild(li);
       });
@@ -92,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         li.innerHTML = `
           <strong>${card.title}</strong> (프로젝트: ${card.project_name})
           <p class="mb-0 text-muted">${card.description || '설명 없음'}</p>
+          <small class="text-muted">마감일: ${card.due_date || '미설정'}</small>
         `;
         li.addEventListener('click', () => {
           const searchModal = bootstrap.Modal.getInstance(document.getElementById('searchModal'));
@@ -99,14 +99,13 @@ document.addEventListener('DOMContentLoaded', () => {
           const projectElement = document.querySelector(`.project-card-wrapper[data-project-id="${card.project_id}"]`);
           if (projectElement) {
             projectElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            // 렌더링 후 하이라이트
             requestAnimationFrame(() => {
               applyHighlight(projectElement);
             });
           } else {
-            console.warn(`Project element not found for card: ${card.id}, project: ${card.project_id}`);
+            console.warn(`카드의 프로젝트 요소를 찾을 수 없음: ${card.id}, 프로젝트: ${card.project_id}`);
           }
-          console.log(`Clicked card: ${card.title} in project ${card.project_name}`);
+          console.log(`클릭한 카드: ${card.title}, 프로젝트: ${card.project_name}`);
         });
         cardList.appendChild(li);
       });
@@ -114,41 +113,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function performSearch(keyword) {
+  async function performSearch(keyword, dueDate) {
     try {
-      if (!keyword.trim()) {
-        searchResults.innerHTML = '<p class="text-muted">키워드를 입력하세요.</p>';
+      if (!keyword.trim() && !dueDate) {
+        searchResults.innerHTML = '<p class="text-muted">키워드 또는 마감일을 입력하세요.</p>';
         return;
       }
-      const response = await fetch(`/projects/search?keyword=${encodeURIComponent(keyword)}`, {
+      const queryParams = new URLSearchParams();
+      if (keyword.trim()) {
+        queryParams.append('keyword', keyword);
+      }
+      if (dueDate) {
+        queryParams.append('due_date', dueDate);
+      }
+      const response = await fetch(`/projects/search?${queryParams.toString()}`, {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include'
       });
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP 오류! 상태: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Search results:', data);
+      console.log('검색 결과:', data);
       renderResults(data);
     } catch (error) {
-      console.error('Search error:', error);
+      console.error('검색 오류:', error);
       searchResults.innerHTML = '<p class="text-danger">검색 중 오류가 발생했습니다.</p>';
     }
   }
 
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      console.log(`Keyword input: ${e.target.value}`);
+      console.log(`키워드 입력: ${e.target.value}`);
     });
 
     searchInput.addEventListener('input', debounce((e) => {
-      performSearch(e.target.value);
+      performSearch(e.target.value, dueDateInput.value);
     }, 300));
   }
 
   if (dueDateInput) {
-    dueDateInput.addEventListener('input', (e) => {
-      console.log(`Due date input: ${e.target.value} (not implemented)`);
+    dueDateInput.addEventListener('change', (e) => {
+      console.log(`마감일 선택: ${e.target.value}`);
+      performSearch(searchInput.value, e.target.value);
     });
   }
 
@@ -156,8 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
     searchForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const keyword = searchInput.value;
-      console.log(`Search form submitted with keyword: ${keyword}`);
-      performSearch(keyword);
+      const dueDate = dueDateInput.value;
+      console.log(`검색 폼 제출 - 키워드: ${keyword}, 마감일: ${dueDate}`);
+      performSearch(keyword, dueDate);
     });
   }
 
@@ -166,10 +174,11 @@ document.addEventListener('DOMContentLoaded', () => {
     searchModal.addEventListener('shown.bs.modal', () => {
       setTimeout(() => {
         searchInput.focus();
-        console.log('Search modal shown, focused on searchInput');
+        console.log('검색 모달 표시, searchInput에 포커스');
       }, 50);
       searchInput.value = '';
-      searchResults.innerHTML = '<p class="text-muted">키워드를 입력하세요.</p>';
+      dueDateInput.value = '';
+      searchResults.innerHTML = '<p class="text-muted">키워드 또는 마감일을 입력하세요.</p>';
     });
   }
 });

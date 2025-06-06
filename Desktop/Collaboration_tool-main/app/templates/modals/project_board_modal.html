@@ -19,7 +19,7 @@ window.currentUser = {
         <div class="d-flex align-items-center px-4 mb-3">
           <strong class="me-2">마감일:</strong>
           <span id="modalDeadline" class="text-muted me-3"></span>
-          <span id="modalDday" class="badge bg-warning text-dark"></span>
+          <span id="modalDday" class="badge text-white"></span>
           <button id="editDeadlineBtn" class="btn btn-sm btn-outline-secondary ms-2">
             <i class="bi bi-pencil"></i>
           </button>
@@ -36,8 +36,10 @@ window.currentUser = {
             <h3 id="history-toggle" style="cursor: pointer;">
               <i id="history-arrow" class="bi bi-caret-right-fill me-1"></i> 히스토리
             </h3>
-            <div id="history-loading" style="display: none;">로딩 중...</div>
-            <ul id="history-list"></ul>
+            <div id="history-loading" style="display: none;"></div>
+            <ul id="history-list" style="display: none;">
+              <!-- 히스토리 항목들-->
+            </ul>
           </div>
 
           <div class="comment-section mt-5">
@@ -53,7 +55,7 @@ window.currentUser = {
                      accept="image/*"
                      class="form-control form-control-sm me-2"
                      style="width:auto;" />
-              <button id="add-comment-btn" class="btn btn-primary">등록</button>
+              <button id="add-comment-btn" type="button" class="btn btn-primary">등록</button>
             </div>
           </div>
         </div>

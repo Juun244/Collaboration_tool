@@ -42,6 +42,8 @@ body {
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid #dee2e6;
+    min-width: 250px;
+    flex: 0 0 auto;
   }
   .card-body {
     padding-bottom: 3rem;
@@ -98,6 +100,17 @@ body {
       margin-left: 0;
     }
   }
+  
+  @media (max-width: 768px) {
+  .kanban-board {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .kanban-column {
+    min-width: 250px;
+  }
+}
+
   .kanban-board {
     display: flex;
     padding: 1rem;
@@ -333,7 +346,7 @@ body {
   .project-card-wrapper.highlight .project-card,
   .task-card.highlight {
     animation: highlight 0.5s ease-in-out 3 !important;
-    background-color: #fff3cd !important; /* 즉시 노란색 적용 */
+    background-color: #fff3cd !important;
   }
 
   @keyframes highlight {
@@ -348,7 +361,7 @@ body {
   }
 
   #history-list.open {
-    max-height: 500px; /* 충분히 큰 값 */
+    max-height: 500px;
   }
 
   #history-arrow {
@@ -356,10 +369,6 @@ body {
     transition: transform 0.2s ease;
     width: 1em;
     text-align: center;
-  }
-
-  #history-list.open ~ #history-arrow {
-    transform: rotate(90deg);
   }
 
   #projectBoardModal .kanban-board {
@@ -372,7 +381,7 @@ body {
   }
 
 .floating-chat {
-  position: fixed; /* absolute 대신 fixed로 최상위 고정 */
+  position: fixed;
   bottom: 20px;
   right: 20px;
   width: 300px;
@@ -469,7 +478,77 @@ body {
   padding-bottom: 1rem;
 }
 
-.project-card {
-  min-width: 250px;
-  flex: 0 0 auto;
+
+/* 알림 스타일 */
+.notification-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #dee2e6;
+    transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+    background-color: #f8f9fa;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-item .badge {
+    font-size: 0.75rem;
+}
+
+#notificationsList {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.notification-badge {
+    font-size: 0.75rem;
+    transform: translate(-50%, -50%);
+}
+
+#notificationsToggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#notificationsToggle i {
+    font-size: 1.1rem;
+}
+
+.opacity-0 {
+  opacity: 0;
+}
+
+.opacity-100 {
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.fade-out {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: all 0.3s ease-out;
+}
+
+.badge {
+  display: inline-block;
+  width: auto;
+}
+
+.floating-chat.minimized {
+  height: 40px !important;
+  min-height: unset !important;
+  max-height: unset !important;
+  resize: none !important;
+  overflow: hidden !important;
+}
+.floating-chat.minimized .chat-body {
+  display: none !important;
 }

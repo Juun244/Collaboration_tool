@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   toggle.addEventListener("click", function () {
     list.classList.toggle("open");
+    list.style.display = list.classList.contains("open") ? "block" : "none";
     arrow.classList.toggle("bi-caret-right-fill");
     arrow.classList.toggle("bi-caret-down-fill");
   });
@@ -61,9 +62,16 @@ async function loadHistory(projectId) {
       if (shouldDisplay) {
         switch (entry.action) {
           case "update_deadline":
-            detailText = entry.details.old_deadline
-              ? `마감일 수정: ${entry.details.old_deadline} → ${entry.details.new_deadline}`
-              : `마감일 설정: ${entry.details.new_deadline}`;
+            if (entry.details.new_deadline == null){
+              detailText = entry.details.old_deadline
+              ? `🗓️ 마감일 ${entry.details.old_deadline} → '없음' 으로 변경`
+              : `🗓️ 마감일 '없음' 으로 설정`;
+            }
+            else{
+              detailText = entry.details.old_deadline
+              ? `🗓️ 마감일 ${entry.details.old_deadline} → ${entry.details.new_deadline} 으로 변경`
+              : `🗓️ 마감일 ${entry.details.new_deadline} 으로 설정`;
+            }
             break;
           case "create":
             detailText = entry.details.project_name
@@ -120,12 +128,6 @@ async function loadHistory(projectId) {
         historyList.appendChild(li);
       }
     });
-
-    if (historyList.children.length > 0) {
-      historyList.classList.add("open");
-      arrow.classList.remove("bi-caret-right-fill");
-      arrow.classList.add("bi-caret-down-fill");
-    }
 
   } catch (error) {
     console.error("Failed to load history:", error);

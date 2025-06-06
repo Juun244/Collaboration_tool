@@ -1,3 +1,7 @@
+#로컬에서 주석처리
+#import eventlet
+#eventlet.monkey_patch()
+
 from flask import Flask
 from flask_login import LoginManager
 from flask_bcrypt import Bcrypt
@@ -10,7 +14,7 @@ import os
 from app.routes.auth import auth_bp, init_auth
 from app.routes.projects import projects_bp, init_projects
 from app.routes.cards import cards_bp, init_cards
-from app.routes.chat import register_chat_events
+from app.routes.socket import register_socket_events
 from app import mongo  # ✅ 이제 여기에 mongo 있음
 
 # 환경 변수 로드
@@ -18,7 +22,8 @@ load_dotenv()
 
 # Flask 앱 설정
 app = Flask(__name__)
-app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+#app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+app.config["MONGO_URI"] = os.getenv('DB_STRING')
 app.secret_key = os.getenv('SECRET_KEY')
 
 # 🔐 Flask-Mail 설정
@@ -34,11 +39,13 @@ app.config.update(
 mongo.init_app(app)
 bcrypt = Bcrypt(app)
 mail.init_app(app)
-socketio = SocketIO(app)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # 로그인 매니저 설정
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_view = 'auth.login'  # 로그인 페이지 경로 설정
+login_manager.login_message = "접근하려면 로그인이 필요합니다."
 
 # 사용자 모델
 class User:
@@ -78,7 +85,7 @@ app.register_blueprint(projects_bp)
 app.register_blueprint(cards_bp)
 
 # ✅ 소켓 이벤트 등록
-register_chat_events(socketio)
+register_socket_events(socketio)
 
 # 서버 실행
 if __name__ == "__main__":
