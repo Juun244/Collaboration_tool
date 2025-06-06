@@ -320,71 +320,31 @@ def register_socket_events(socketio):
     @login_required
     def handle_create_card(data):
         project_id = str(data.get('project_id'))
-        card_title = data.get('card_title')
+        card = data.get('card')
         user_id = str(current_user.get_id())
-        timestamp = get_timestamp()
+        if not card or not project_id:
+            print("Invalid data received for create_card")
+            return
 
         project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if ObjectId(user_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if not card_title:
-            emit('notice', {'msg': '카드 제목이 필요합니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        max_order_doc = mongo.db.cards.find({'project_id': ObjectId(project_id)}).sort('order', -1).limit(1)
-        max_order_doc = next(max_order_doc, None)
-        max_order = max_order_doc['order'] + 1 if max_order_doc else 0
-
-        new_card = {
-            'project_id': ObjectId(project_id),
-            'title': card_title,
-            'description': data.get('description', ''),
-            'created_by': ObjectId(user_id),
-            'created_at': datetime.utcnow(),
-            'status': data.get('status', 'todo'),
-            'order': max_order
-        }
-
-        result = mongo.db.cards.insert_one(new_card)
-        card_id = str(result.inserted_id)
-
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            nickname= current_user.nickname,
-            action='card_create',
-            details={
-                'title': card_title,
-                'status': new_card['status']
-            }
-        )
 
         # 프로젝트 멤버들에게 알림 전송
         for member in project.get('members', []):
             member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
             if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
                 emit('notification', {
-                    'message': f'[{project["name"]}] {current_user.nickname}님이 새로운 카드를 생성했습니다: {card_title}',
+                    'message': f'[{project["name"]}] {current_user.nickname}님이 새로운 카드를 생성했습니다: {card.get("title")}',
                     'type': 'card_created',
                     'timestamp': datetime.utcnow().isoformat()
                 }, room=member_nickname)
 
         emit('card_created', {
             'project_id': project_id,
-            'card_id': card_id,
-            'card_title': card_title,
-            'user_id': user_id,
+            'card': card,
+            'user_id': str(current_user.get_id()),
             'nickname': current_user.nickname,
-            'timestamp': timestamp
-        }, room=project_id)
+            'timestamp': datetime.utcnow().isoformat()
+        }, room=project_id, include_self=False)
 
     # 'delete_card' 이벤트 핸들러
     @socketio.on('delete_card')

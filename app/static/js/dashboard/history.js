@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   toggle.addEventListener("click", function () {
     list.classList.toggle("open");
+    list.style.display = list.classList.contains("open") ? "block" : "none";
     arrow.classList.toggle("bi-caret-right-fill");
     arrow.classList.toggle("bi-caret-down-fill");
   });
@@ -120,12 +121,6 @@ async function loadHistory(projectId) {
         historyList.appendChild(li);
       }
     });
-
-    if (historyList.children.length > 0) {
-      historyList.classList.add("open");
-      arrow.classList.remove("bi-caret-right-fill");
-      arrow.classList.add("bi-caret-down-fill");
-    }
 
   } catch (error) {
     console.error("Failed to load history:", error);

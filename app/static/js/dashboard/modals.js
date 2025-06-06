@@ -15,16 +15,18 @@ function initializeModals() {
 
     e.stopPropagation();
     const projectId = addBtn.dataset.projectId;
-    const status = addBtn.dataset.status;
+    const status = addBtn.dataset.status || 'todo';
 
     const modalElem = document.getElementById("createCardModal");
     const form = modalElem.querySelector('#createCardForm');
 
     // projectId 숨겨진 input에 값 할당
     form.projectId.value = projectId;
+    console.log("버튼클릭-프로젝트 ID:", form.projectId.value); // 디버깅 로그
 
     // status select 기본값 세팅
     form.status.value = status;
+    window.currentProjectId = projectId;
 
     new bootstrap.Modal(modalElem).show();
   });
@@ -34,10 +36,12 @@ function initializeModals() {
   document.addEventListener("click", e => {
     const button = e.target.closest(".invite-member");
     if (!button) return;
-
+    
+    console.log("초대 모달 클릭 이벤트 발생"); // 디버깅 로그
     e.stopPropagation(); // 카드 클릭 이벤트 방지
     const projectId = button.dataset.projectId;
     const inputElem = document.getElementById("inviteProjectId");
+    console.log("초대 버튼 클릭 - 프로젝트 ID:", projectId); // 디버깅 로그
 
     if (!projectId || !inputElem) return;
 
@@ -59,6 +63,16 @@ function initializeModals() {
     document.getElementById("projectBoardTitle").textContent = card.querySelector(".card-title").textContent;
     document.getElementById("modalDeleteBtn").dataset.projectId = window.currentProjectId;
     document.getElementById("modalLeaveBtn").dataset.projectId  = window.currentProjectId;
+    const isOwner = currentUser.id === wrapper.dataset.ownerId;
+    if (isOwner) {
+      console.log("모달 열기 - 프로젝트 소유자 확인됨");
+      document.getElementById("modalDeleteBtn").classList.remove('d-none');
+      document.getElementById("modalLeaveBtn").classList.add('d-none');
+    } else {
+      console.log("모달 열기 - 프로젝트 소유자 아님");
+      document.getElementById("modalDeleteBtn").classList.add('d-none');
+      document.getElementById("modalLeaveBtn").classList.remove('d-none');
+    }
 
     // modalDeadline, modalDday 세팅
     const deadlineText = wrapper.dataset.deadline || '';

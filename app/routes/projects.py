@@ -92,7 +92,15 @@ def create_project():
             }
         )
 
-        return jsonify({"id": project_id, "name": new_project["name"]}), 201
+        return jsonify({
+            "id": project_id, 
+            "name": data["name"],
+            "description": data.get("description", ""),
+            "deadline": deadline,
+            "members": [user_id],
+            "owner": user_id,
+            "created_at": datetime.utcnow(),
+            "order": max_order_value }), 201
     except Exception as e:
         return handle_db_error(e)
 

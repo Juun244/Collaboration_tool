@@ -84,9 +84,8 @@ function initializeProjects() {
       console.log("Click event in modal, target:", target, "tagName:", target.tagName, "classList:", target.classList.toString()); // 디버깅 로그
 
       // 버튼 또는 버튼 내 아이콘 클릭 감지
-      const button = target.closest("#modalDeleteBtn, #modalLeaveBtn, .delete-project, .leave-project");
+      const button = target.closest("#modalDeleteBtn, #modalLeaveBtn");
       if (!button) {
-        console.log("No delete or leave button found for click event");
         return;
       }
 
@@ -643,10 +642,9 @@ function appendProjectCard(project) {
 
   const wrapper = document.createElement('div');
   wrapper.className = 'project-card-wrapper';
-  wrapper.dataset.projectId = project._id;
+  wrapper.dataset.projectId = project.id;
   wrapper.dataset.ownerId = project.owner;
   wrapper.dataset.deadline = project.deadline || '';
-  wrapper.dataset.dDay = project.d_day || '';
 
   // 카드 내부 구성
   wrapper.innerHTML = `
@@ -655,30 +653,32 @@ function appendProjectCard(project) {
         <h5 class="card-title">${project.name}</h5>
         <p class="card-text truncate-description">${project.description || ''}</p>
 
-        <div class="card-container mt-3" data-project-id="${project._id}"></div>
+        <div class="card-container mt-3" data-project-id="${project.id}"></div>
         <span class="member-count" data-members="${project.members?.length || 0}">
           ${project.members?.length || 0} members
         </span>
         <button class="btn add-card-btn mt-2 w-100"
-                data-project-id="${project._id}">
+                data-project-id="${project.id}">
           <span class="add-card-content"><i class="bi bi-plus-lg"></i> 카드 추가</span>
         </button>
       </div>
 
       <button class="btn btn-sm btn-outline-primary invite-member position-absolute start-0 bottom-0 m-2"
-              data-project-id="${project._id}">
+              data-project-id="${project.id}">
         <i class="bi bi-person-plus"></i> Invite
       </button>
 
       <button class="btn btn-sm btn-outline-success open-chat-btn position-absolute end-0 bottom-0 m-2"
-              data-project-id="${project._id}"
+              data-project-id="${project.id}"
               data-project-name="${project.name}">
         <i class="bi bi-chat-dots"></i> Chat
       </button>
     </div>
   `;
+  container.appendChild(wrapper); // 맨 끝에 추가
 
-  container.prepend(wrapper);
+  // 스크롤 위치를 새로 추가된 카드까지 이동
+  wrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 function renderCommentHTML(comment) {

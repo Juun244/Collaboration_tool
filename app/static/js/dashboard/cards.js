@@ -13,7 +13,6 @@ function initializeCards() {
   const createCardBtn = document.getElementById("createCard");
 
   if (createCardForm && createCardBtn) {
-    console.log("createCardForm과 createCardBtn 발견"); // 디버깅 로그
     // 폼 제출 이벤트
     createCardForm.addEventListener("submit", async (e) => {
       e.preventDefault(); // 기본 제출 방지
@@ -23,7 +22,7 @@ function initializeCards() {
 
       const formData = new FormData(createCardForm);
       const data = {
-        card_title: formData.get("title"),
+        title: formData.get("title"),
         description: formData.get("description"),
         status: formData.get("status") || "todo",
         project_id: formData.get('projectId') || window.currentProjectId
@@ -32,10 +31,34 @@ function initializeCards() {
       console.log("카드 생성 데이터:", data); // 디버깅 로그
 
       try {
-        // WebSocket 이벤트로 카드 생성
-        socket.emit('create_card', data);
+        const response = await fetch(`/projects/${window.currentProjectId}/cards`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data)
+        });
+
+        console.log("data : ", data); // 디버깅 로그
+        if (!response.ok) {
+          const err = await response.json();
+          alert(err.message || "카드 생성 실패");
+          return;
+        }
+
+        const newCard = await response.json();
+
+        // 생성된 카드 DOM에 추가
+        const container = document.querySelector(`.project-card-wrapper[data-project-id="${newCard.project_id}"] .card-container`);
+        const cardElement = createCardElement(newCard, false); // 드래그 가능
+        container.appendChild(cardElement);
+
         bootstrap.Modal.getInstance(document.getElementById("createCardModal")).hide();
         createCardForm.reset();
+        socket.emit('create_card', {
+          project_id: data.project_id,
+          card: newCard
+        });
       } catch (err) {
         console.error("Create card error:", err);
         alert("카드 생성 중 오류가 발생했습니다.");
@@ -57,7 +80,7 @@ function initializeCards() {
   // WebSocket 이벤트 리스너
   socket.on('card_created', (data) => {
     console.log("card_created 이벤트 수신:", data); // 디버깅 로그
-    loadCards(); // 카드 목록 새로고침
+    appendCardToDOM(data.card, false); // 메인 대시보드에 카드 추가
   });
 
   socket.on('card_updated', (data) => {
@@ -217,6 +240,7 @@ function createCardElement(card, isModal = false) {
 
   return cardElement;
 }
+
 
 function initializeCardButtons() {
   // 기존 이벤트 리스너 제거
