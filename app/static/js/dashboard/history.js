@@ -62,9 +62,16 @@ async function loadHistory(projectId) {
       if (shouldDisplay) {
         switch (entry.action) {
           case "update_deadline":
-            detailText = entry.details.old_deadline
-              ? `🗓️ 마감일 <b>${entry.details.old_deadline}</b> → <b>${entry.details.new_deadline}</b> 으로 변경`
-              : `🗓️ 마감일 <b>${entry.details.new_deadline}</b>로 설정`;
+            if (entry.details.new_deadline == null){
+              detailText = entry.details.old_deadline
+              ? `🗓️ 마감일 ${entry.details.old_deadline} → '없음' 으로 변경`
+              : `🗓️ 마감일 '없음' 으로 설정`;
+            }
+            else{
+              detailText = entry.details.old_deadline
+              ? `🗓️ 마감일 ${entry.details.old_deadline} → ${entry.details.new_deadline} 으로 변경`
+              : `🗓️ 마감일 ${entry.details.new_deadline} 으로 설정`;
+            }
             break;
           case "create":
             detailText = entry.details.project_name

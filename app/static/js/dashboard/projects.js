@@ -500,13 +500,17 @@ async function deleteComment(commentId, projectId) {
 initializeProjects();
 
 // 댓글 + 이미지 업로드 핸들러
-const addCommentBtn = document.getElementById('add-comment-btn');
-if (addCommentBtn) {
-  addCommentBtn.onclick = async function() {
+document.getElementById('projectBoardModal')
+  .addEventListener('click', async function (e) {
+    const addCommentBtn = e.target.closest('#add-comment-btn');
+    if (!addCommentBtn) return;
+
+    console.log("모달 내 댓글 추가 버튼 클릭됨");
+
     const contentInput = document.getElementById('new-comment-content');
-    const fileInput    = document.getElementById('new-comment-image');
-    const content      = contentInput.value.trim();
-    const projectId    = document.getElementById('projectBoardModal').dataset.projectId;
+    const fileInput = document.getElementById('new-comment-image');
+    const content = contentInput.value.trim();
+    const projectId = document.getElementById('projectBoardModal')?.dataset?.projectId;
 
     if (!content && !fileInput.files.length) {
       alert("댓글 또는 이미지를 입력하세요.");
@@ -524,7 +528,6 @@ if (addCommentBtn) {
     }
 
     try {
-      console.log("Sending comment to server:", { projectId, content });
       const res = await fetch(`/projects/${projectId}/comments`, {
         method: 'POST',
         body: formData,
@@ -533,39 +536,22 @@ if (addCommentBtn) {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        console.error("Add comment failed:", err);
         alert(err.error || "댓글 추가 실패");
         return;
       }
 
       const responseData = await res.json();
-      console.log("Comment added successfully:", responseData);
-      
-      // 소켓 이벤트 발생 수정
-      const commentData = {
-        project_id: projectId,
-        content: content,
-        comment: {
-          _id: responseData.id,
-          author_id: currentUser.id,
-          author_name: currentUser.nickname,
-          content: content,
-          created_at: new Date().toISOString()
-        }
-      };
-      console.log("Emitting create_comment event:", commentData);
-      socket.emit('create_comment', commentData);
 
-      // 초기화 및 재로드
+      // socket emit 등 생략
       contentInput.value = '';
-      fileInput.value    = '';
+      fileInput.value = '';
       loadComments(projectId);
     } catch (err) {
-      console.error("Add comment error:", err);
+      console.error("댓글 추가 중 오류:", err);
       alert("댓글 추가 중 오류가 발생했습니다.");
     }
-  };
-}
+  });
+
 
 
 
