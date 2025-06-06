@@ -59,6 +59,7 @@ function initializeModals() {
     // wrapper, projectId, modal title/데이터 세팅
     const wrapper = card.closest('.project-card-wrapper');
     window.currentProjectId = wrapper.dataset.projectId;
+    console.log("ownerId:", wrapper.dataset.ownerId); // 디버깅 로그
     document.getElementById("projectBoardModal").dataset.projectId = window.currentProjectId;
     document.getElementById("projectBoardTitle").textContent = card.querySelector(".card-title").textContent;
     document.getElementById("modalDeleteBtn").dataset.projectId = window.currentProjectId;

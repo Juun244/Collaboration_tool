@@ -71,14 +71,14 @@
                 </div>
             </div>
 
-            <div class="project-scroll-container d-flex flex-nowrap overflow-auto gap-3 py-2">
+            <div class="project-scroll-container d-flex flex-nowrap align-items-start overflow-auto gap-3 py-2">
                 {% for project in projects %}
                 <div class="project-card-wrapper"
                      data-project-id="{{ project._id }}"
                      data-owner-id="{{ project.owner }}"
                      data-deadline="{{ project.deadline }}"
                      data-d-day="{{ project.d_day }}">
-                    <div class="card project-card h-100 position-relative">
+                    <div class="card project-card position-relative">
                         <!-- 카드 본문 -->
                         <div class="card-body">
                             <h5 class="card-title">{{ project.name }}</h5>

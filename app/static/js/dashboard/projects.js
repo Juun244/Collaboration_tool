@@ -643,7 +643,7 @@ function appendProjectCard(project) {
   const wrapper = document.createElement('div');
   wrapper.className = 'project-card-wrapper';
   wrapper.dataset.projectId = project.id;
-  wrapper.dataset.ownerId = project.owner;
+  wrapper.dataset.ownerId = project.owner.$oid || project.owner;;
   wrapper.dataset.deadline = project.deadline || '';
 
   // 카드 내부 구성
@@ -677,7 +677,7 @@ function appendProjectCard(project) {
   `;
   container.appendChild(wrapper); // 맨 끝에 추가
 
-  // 스크롤 위치를 새로 추가된 카드까지 이동
+  // 스크롤 위치를 새로 추가된 프로젝트까지 이동
   wrapper.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 

@@ -195,10 +195,25 @@ function initializeDragAndDrop() {
     }, 100);
   }
 
-  function saveProjectOrder() {
+  async function saveProjectOrder() {
     const order = Array.from(container.querySelectorAll(".project-card-wrapper"))
       .map(card => card.getAttribute("data-project-id"));
-    localStorage.setItem("projectOrder", JSON.stringify(order));
+
+    localStorage.setItem("projectOrder", JSON.stringify(order)); // 선택사항
+
+    try {
+      const response = await fetch("/projects/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ order })
+      });
+      if (!response.ok) {
+        console.error("프로젝트 순서 저장 실패:", response.status);
+      }
+    } catch (err) {
+      console.error("순서 저장 중 오류:", err);
+    }
   }
 
   // 카드 드래그 앤 드롭 설정

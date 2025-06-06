@@ -20,28 +20,36 @@ def init_projects(app):
 def reorder_projects():
     data = request.get_json()
     order = data.get("order", [])
-    
-    user_id = ObjectId(current_user.get_id())
-    for index, project_id in enumerate(order):
-        oid = safe_object_id(project_id)
-        if not oid:
-            continue
-        project = mongo.db.projects.find_one({"_id": oid, "members": user_id})
-        if project:
-            mongo.db.projects.update_one(
-                {"_id": oid},
-                {"$set": {"order": index}}
-            )
-    
-    return jsonify({"message": "프로젝트 순서가 업데이트되었습니다."}), 200
+    user_id = safe_object_id(current_user.get_id())
+
+    # 사용자의 project_order 배열을 업데이트
+    mongo.db.users.update_one(
+        {"_id": user_id},
+        {"$set": {"project_order": order}}
+    )
+
+    return jsonify({"message": "프로젝트 순서가 사용자별로 업데이트되었습니다."}), 200
 
 @projects_bp.route("/projects/order", methods=["GET"])
 @login_required
 def get_project_order():
-    user_id = ObjectId(current_user.get_id())
-    projects = mongo.db.projects.find({"members": user_id}).sort("order", 1)
-    order = [str(project["_id"]) for project in projects]
-    return jsonify({"order": order}), 200
+    user_id = safe_object_id(current_user.get_id())
+
+    user = mongo.db.users.find_one({"_id": user_id}, {"project_order": 1})
+    project_order = user.get("project_order", []) if user else []
+
+    # 현재 사용자가 속한 프로젝트 리스트
+    projects = list(mongo.db.projects.find({"members": user_id}))
+
+    # 프로젝트 ID 집합
+    project_ids = set(str(p["_id"]) for p in projects)
+
+    # project_order에 없는 새 프로젝트는 뒤에 추가
+    full_order = [pid for pid in project_order if pid in project_ids]
+    missing_projects = [str(p["_id"]) for p in projects if str(p["_id"]) not in full_order]
+    full_order.extend(missing_projects)
+
+    return jsonify({"order": full_order}), 200
 
 @projects_bp.route("/projects/create", methods=["POST"])
 @login_required
@@ -61,10 +69,7 @@ def create_project():
                 logger.warning(f"Invalid deadline format: {deadline_str}")
                 return jsonify({"message": "유효하지 않은 마감일 형식입니다."}), 400
 
-        user_id = ObjectId(current_user.get_id())
-        max_order = mongo.db.projects.find({"members": user_id}).sort("order", -1).limit(1)
-        max_order_doc = next(max_order, None)
-        max_order_value = max_order_doc["order"] + 1 if max_order_doc else 0
+        user_id = safe_object_id(current_user.get_id())
 
         new_project = {
             "name": data["name"],
@@ -73,11 +78,17 @@ def create_project():
             "members": [user_id],
             "owner": user_id,
             "created_at": datetime.utcnow(),
-            "order": max_order_value
         }
 
         result = mongo.db.projects.insert_one(new_project)
         project_id = str(result.inserted_id)
+
+        # 프로젝트 생성 후 사용자 정보 업데이트
+        mongo.db.users.update_one(
+            {"_id": user_id},
+            {"$push": {"project_order": str(project_id)}}
+        )
+
 
         log_history(
             mongo=mongo,
@@ -99,8 +110,7 @@ def create_project():
             "deadline": deadline,
             "members": [user_id],
             "owner": user_id,
-            "created_at": datetime.utcnow(),
-            "order": max_order_value }), 201
+            "created_at": new_project["created_at"] }), 201
     except Exception as e:
         return handle_db_error(e)
 
@@ -116,11 +126,16 @@ def delete_or_leave_project(project_id):
         logger.error(f"Project not found: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
-    user_id = ObjectId(current_user.get_id())
+    user_id = safe_object_id(current_user.get_id())
     if project.get("owner") == user_id:
+        member_ids = project.get("members", [])  # ObjectId 리스트
         mongo.db.projects.delete_one({"_id": oid})
         mongo.db.cards.delete_many({"project_id": oid})
         mongo.db.comments.delete_many({"project_id": oid})
+        mongo.db.users.update_many(
+            {"_id": {"$in": member_ids}},
+            {"$pull": {"project_order": str(project_id)}}
+        )
 
         log_history(
             mongo=mongo,
@@ -140,6 +155,10 @@ def delete_or_leave_project(project_id):
         mongo.db.projects.update_one(
             {"_id": oid},
             {"$pull": {"members": user_id}}
+        )
+        mongo.db.users.update_one(
+            {"_id": user_id},
+            {"$pull": {"project_order": str(project_id)}}
         )
 
         log_history(
@@ -167,7 +186,7 @@ def get_project(project_id):
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if project:
         logger.info(f"Retrieved project: {project_id}")
         return jsonify({
@@ -189,7 +208,7 @@ def invite_member(project_id):
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -199,11 +218,11 @@ def invite_member(project_id):
         logger.error(f"User {invitee_nickname} not found")
         return jsonify({"message": "사용자를 찾을 수 없습니다."}), 404
 
-    if ObjectId(invitee["_id"]) in project.get("members", []):
+    if safe_object_id(invitee["_id"]) in project.get("members", []):
         logger.error(f"User {invitee_nickname} already a member of project {project_id}")
         return jsonify({"message": "이미 프로젝트 멤버입니다."}), 400
 
-    if ObjectId(project_id) in invitee.get("invitations", []):
+    if oid in invitee.get("invitations", []):
         logger.error(f"User {invitee_nickname} already invited to project {project_id}")
         return jsonify({"message": "이미 초대된 사용자입니다."}), 400
 
@@ -232,7 +251,7 @@ def invite_member(project_id):
 @projects_bp.route('/invitations', methods=['GET'])
 @login_required
 def get_invitations():
-    user_id = ObjectId(current_user.get_id())
+    user_id = safe_object_id(current_user.get_id())
     user_data = mongo.db.users.find_one({"_id": user_id})
     invitations = list(mongo.db.projects.find({"_id": {"$in": user_data.get("invitations", [])}}))
     logger.info(f"Retrieved {len(invitations)} invitations for user {user_id}")
@@ -254,7 +273,7 @@ def respond_invitation():
         logger.error(f"Project not found: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없습니다."}), 404
 
-    user_id = ObjectId(current_user.get_id())
+    user_id = safe_object_id(current_user.get_id())
     mongo.db.users.update_one(
         {"_id": user_id},
         {"$pull": {"invitations": project_id}}
@@ -292,7 +311,7 @@ def search_projects_and_cards():
         if not keyword:
             return jsonify({"projects": [], "cards": [], "message": "키워드가 필요합니다."}), 200
 
-        user_id = ObjectId(current_user.get_id())
+        user_id = safe_object_id(current_user.get_id())
         project_query = {
             "$or": [
                 {"name": {"$regex": keyword, "$options": "i"}},
@@ -351,7 +370,7 @@ def get_history(project_id):
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -372,11 +391,11 @@ def get_history(project_id):
 @login_required
 def get_comments(project_id):
     try:
-        oid = ObjectId(project_id)
+        oid = safe_object_id(project_id)
     except:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -403,7 +422,7 @@ def add_comment(project_id):
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -414,7 +433,7 @@ def add_comment(project_id):
     if not content and not file:
         return jsonify({"message": "댓글 또는 이미지를 입력하세요."}), 400
 
-    user_id = ObjectId(current_user.get_id())
+    user_id = safe_object_id(current_user.get_id())
     upload_dir = os.path.join(current_app.static_folder, "Uploads")
     os.makedirs(upload_dir, exist_ok=True)
 
@@ -460,7 +479,7 @@ def edit_comment(comment_id):
     logger.info(f"Attempting to edit comment: {comment_id}")
     
     try:
-        oid = ObjectId(comment_id)
+        oid = safe_object_id(comment_id)
     except Exception as e:
         logger.error(f"Invalid comment ID format: {comment_id}, error: {str(e)}")
         return jsonify({"message": "유효하지 않은 댓글 ID입니다."}), 400
@@ -470,7 +489,7 @@ def edit_comment(comment_id):
         logger.error(f"Comment not found: {comment_id}")
         return jsonify({"message": "댓글을 찾을 수 없습니다."}), 404
 
-    project = mongo.db.projects.find_one({"_id": comment["project_id"], "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": comment["project_id"], "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access for comment: {comment_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -549,7 +568,7 @@ def delete_comment(comment_id):
     logger.info(f"Attempting to delete comment: {comment_id}")
     
     try:
-        oid = ObjectId(comment_id)
+        oid = safe_object_id(comment_id)
     except Exception as e:
         logger.error(f"Invalid comment ID format: {comment_id}, error: {str(e)}")
         return jsonify({"message": "유효하지 않은 댓글 ID입니다."}), 400
@@ -559,7 +578,7 @@ def delete_comment(comment_id):
         logger.error(f"Comment not found: {comment_id}")
         return jsonify({"message": "댓글을 찾을 수 없습니다."}), 404
 
-    project = mongo.db.projects.find_one({"_id": comment["project_id"], "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": comment["project_id"], "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access for comment: {comment_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -602,7 +621,7 @@ def update_deadline(project_id):
     if not oid:
         return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
 
-    project = mongo.db.projects.find_one({"_id": oid, "members": ObjectId(current_user.get_id())})
+    project = mongo.db.projects.find_one({"_id": oid, "members": safe_object_id(current_user.get_id())})
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
@@ -648,8 +667,8 @@ def update_deadline(project_id):
 @login_required
 def get_all_projects():
     try:
-        user_id = ObjectId(current_user.get_id())
-        projects = mongo.db.projects.find({"members": user_id}).sort("order", 1)
+        user_id = safe_object_id(current_user.get_id())
+        projects = mongo.db.projects.find({"members": user_id})
         
         project_list = []
         for project in projects:
@@ -684,7 +703,6 @@ def get_all_projects():
                 "deadline": project["deadline"].strftime("%Y-%m-%d") if project.get("deadline") else None,
                 "d_day": d_day_status, # D-Day 정보 추가
                 "owner_id": str(project["owner"]),
-                "order": project.get("order", 0)
             })
         
         logger.info(f"Retrieved {len(project_list)} projects for user {user_id}")
