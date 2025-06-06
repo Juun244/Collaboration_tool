@@ -81,7 +81,6 @@ function initializeProjects() {
   if (projectBoardModal) {
     projectBoardModal.addEventListener("click", async e => {
       const target = e.target;
-      console.log("Click event in modal, target:", target, "tagName:", target.tagName, "classList:", target.classList.toString()); // 디버깅 로그
 
       // 버튼 또는 버튼 내 아이콘 클릭 감지
       const button = target.closest("#modalDeleteBtn, #modalLeaveBtn");
@@ -112,7 +111,6 @@ function initializeProjects() {
             },
             credentials: "include",
           });
-          console.log(`Response status for ${action}: ${response.status}`); // 디버깅 로그
           if (response.ok) {
             const data = await response.json(); // ✅ 한 번만 json() 호출
             alert(data.message || `프로젝트가 ${action}되었습니다.`);
@@ -205,7 +203,6 @@ async function loadComments(projectId) {
       const isMine = comment.author_id === currentUser.id;
       // 댓글 ID를 문자열로 저장
       const commentId = comment.id || comment._id;
-      console.log('Loading comment:', { id: commentId, content: comment.content }); // 디버깅용 로그
       
       list.innerHTML += `
 
@@ -390,7 +387,6 @@ function startInlineEdit(div) {
 
 async function saveInlineEdit(div, projectId) {
   const commentId = div.dataset.id;
-  console.log('Saving comment edit:', { commentId, projectId }); // 디버깅용 로그
   
   if (!commentId) {
     console.error('Comment ID is missing');
@@ -460,7 +456,6 @@ function cancelInlineEdit(div) {
 }
 
 async function deleteComment(commentId, projectId) {
-  console.log('Deleting comment:', { commentId, projectId }); // 디버깅용 로그
   
   if (!commentId) {
     console.error('Comment ID is missing');
@@ -475,7 +470,6 @@ async function deleteComment(commentId, projectId) {
     });
     
     const responseData = await res.json().catch(() => ({}));
-    console.log('Delete response:', responseData); // 디버깅용 로그
     
     if (!res.ok) {
       throw new Error(responseData.message || '댓글 삭제 실패');
@@ -645,8 +639,43 @@ function appendProjectCard(project) {
   wrapper.className = 'project-card-wrapper';
   wrapper.dataset.projectId = project.id;
   wrapper.dataset.ownerId = project.owner.$oid || project.owner;;
-  wrapper.dataset.deadline = project.deadline || '';
 
+  // 마감일 세팅
+  if (project.deadline) {
+    const deadlineDate = new Date(project.deadline);
+    if (!isNaN(deadlineDate.getTime())) {
+      const deadlineStr = deadlineDate.toISOString().slice(0, 10);
+      wrapper.dataset.deadline = deadlineStr;
+    } else {
+      wrapper.dataset.deadline = '';
+    }
+  } else {
+    wrapper.dataset.deadline = '';
+  }
+
+  // dDay 계산 및 세팅
+  const today = dateOnly(new Date());
+  const deadlineDate = wrapper.dataset.deadline ? dateOnly(wrapper.dataset.deadline) : null;
+
+  let diff;
+  if (deadlineDate) {
+    diff = Math.floor((deadlineDate - today) / (1000 * 60 * 60 * 24));
+  } else {
+    diff = null;
+  }
+
+  if (diff === null) {
+    wrapper.dataset.dDay = '';
+  } else if (diff > 0) {
+    wrapper.dataset.dDay = `D-${diff}`;
+  } else if (diff === 0) {
+    wrapper.dataset.dDay = 'D-Day';
+  } else {
+    wrapper.dataset.dDay = `D+${Math.abs(diff)}`;
+  }
+
+  console.log(`Deadline: ${wrapper.dataset.deadline}, dDay: ${wrapper.dataset.dDay}`);
+  
   // 카드 내부 구성
   wrapper.innerHTML = `
     <div class="card project-card h-100 position-relative">

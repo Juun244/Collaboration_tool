@@ -107,7 +107,7 @@ def create_project():
             "id": project_id, 
             "name": data["name"],
             "description": data.get("description", ""),
-            "deadline": deadline,
+            "deadline": new_project["deadline"].strftime('%Y-%m-%d') if new_project["deadline"] else None,
             "members": [user_id],
             "owner": user_id,
             "created_at": new_project["created_at"] }), 201
@@ -303,57 +303,96 @@ def respond_invitation():
 
     return jsonify({"message": f"{action} 처리 완료"}), 200
 
+from datetime import datetime, timedelta
+from flask import jsonify, request
+from bson import ObjectId
+from flask_login import login_required, current_user
+import logging
+
+logger = logging.getLogger(__name__)
+
+def safe_object_id(id_str):
+    try:
+        return ObjectId(id_str)
+    except:
+        return None
+
 @projects_bp.route("/projects/search", methods=["GET"])
 @login_required
 def search_projects_and_cards():
     try:
         keyword = request.args.get("keyword", "").strip()
-        if not keyword:
-            return jsonify({"projects": [], "cards": [], "message": "키워드가 필요합니다."}), 200
+        due_date = request.args.get("due_date", "").strip()
+
+        # 입력 유효성 검사
+        if not keyword and not due_date:
+            return jsonify({"projects": [], "cards": [], "message": "키워드 또는 마감일을 입력하세요."}), 200
 
         user_id = safe_object_id(current_user.get_id())
-        project_query = {
-            "$or": [
+        project_query = {"members": user_id}
+
+        # 키워드 검색 조건
+        if keyword:
+            project_query["$or"] = [
                 {"name": {"$regex": keyword, "$options": "i"}},
                 {"description": {"$regex": keyword, "$options": "i"}}
-            ],
-            "members": user_id
-        }
-        projects = mongo.db.projects.find(project_query)
-        project_results = [
-            {
+            ]
+
+        # 마감일 검색 조건
+        if due_date:
+            try:
+                # due_date는 YYYY-MM-DD 형식으로 입력됨
+                due_date_obj = datetime.strptime(due_date, "%Y-%m-%d")
+                # due_date의 자정(23:59:59.999+00:00)까지 포함
+                due_date_end = due_date_obj.replace(hour=23, minute=59, second=59, microsecond=999999)
+                project_query["deadline"] = {"$lte": due_date_end}
+                logger.debug(f"마감일 쿼리: {project_query['deadline']}")
+            except ValueError:
+                logger.error(f"잘못된 날짜 형식: {due_date}")
+                return jsonify({"projects": [], "cards": [], "message": "잘못된 날짜 형식입니다."}), 400
+
+        # 프로젝트 검색 및 마감일 기준 오름차순 정렬
+        projects = mongo.db.projects.find(project_query).sort("deadline", 1)
+        project_results = []
+        for project in projects:
+            # deadline이 datetime 객체이므로 YYYY-MM-DD 형식으로 변환
+            deadline = project.get("deadline")
+            deadline_str = deadline.strftime("%Y-%m-%d") if isinstance(deadline, datetime) else ""
+            project_results.append({
                 "id": str(project["_id"]),
                 "name": project["name"],
                 "description": project.get("description", ""),
+                "due_date": deadline_str,
                 "type": "project"
-            }
-            for project in projects
-        ]
-
-        card_query = {
-            "$or": [
-                {"title": {"$regex": keyword, "$options": "i"}},
-                {"description": {"$regex": keyword, "$options": "i"}}
-            ]
-        }
-        cards = mongo.db.cards.find(card_query)
-        card_results = []
-        for card in cards:
-            project = mongo.db.projects.find_one({
-                "_id": card["project_id"],
-                "members": user_id
             })
-            if project:
-                card_results.append({
-                    "id": str(card["_id"]),
-                    "project_id": str(card["project_id"]),
-                    "project_name": project["name"],
-                    "title": card["title"],
-                    "description": card.get("description", ""),
-                    "type": "card"
-                })
+        logger.debug(f"프로젝트 검색 결과: {len(project_results)}개, 조건: {project_query}")
 
-        logger.info(f"Search executed: keyword={keyword}, projects={len(project_results)}, cards={len(card_results)}")
+        # 카드 검색 (키워드만 적용)
+        card_results = []
+        if keyword:
+            card_query = {
+                "$or": [
+                    {"title": {"$regex": keyword, "$options": "i"}},
+                    {"description": {"$regex": keyword, "$options": "i"}}
+                ]
+            }
+            cards = mongo.db.cards.find(card_query)
+            for card in cards:
+                project = mongo.db.projects.find_one({
+                    "_id": card["project_id"],
+                    "members": user_id
+                })
+                if project:
+                    card_results.append({
+                        "id": str(card["_id"]),
+                        "project_id": str(card["project_id"]),
+                        "project_name": project["name"],
+                        "title": card["title"],
+                        "description": card.get("description", ""),
+                        "type": "card"
+                    })
+
+        logger.info(f"Search executed: keyword={keyword}, due_date={due_date}, projects={len(project_results)}, cards={len(card_results)}")
         return jsonify({
             "projects": project_results,
             "cards": card_results,
@@ -632,14 +671,40 @@ def update_deadline(project_id):
 
     data = request.get_json()
     new_deadline = data.get('deadline')
-    if not new_deadline:
-        return jsonify({"message": "마감일이 필요합니다."}), 400
 
+    # 마감일이 없으면 deadline 필드 제거하거나 null로 업데이트
+    if not new_deadline:
+        old_deadline_str = project.get('deadline').strftime("%Y-%m-%d") if project.get('deadline') else None
+
+        mongo.db.projects.update_one(
+            {"_id": oid},
+            {"$unset": {"deadline": ""}}  # deadline 필드 삭제
+        )
+
+        log_history(
+            mongo=mongo,
+            project_id=project_id,
+            card_id=None,
+            user_id=str(current_user.get_id()),
+            nickname=current_user.nickname,
+            action="update_deadline",
+            details={
+                "old_deadline": old_deadline_str,
+                "new_deadline": None,
+                "project_name": project["name"]
+            }
+        )
+
+        return jsonify({"message": "마감일이 삭제되었습니다.", "deadline": None}), 200
+
+    # 마감일이 있으면 날짜 형식 검증
     try:
         deadline_dt = datetime.strptime(new_deadline, '%Y-%m-%d')
     except ValueError:
         logger.error(f"Invalid date format: {new_deadline}")
         return jsonify({"message": "유효하지 않은 날짜 형식입니다."}), 400
+
+    old_deadline_str = project.get('deadline').strftime("%Y-%m-%d") if project.get('deadline') else None
 
     mongo.db.projects.update_one(
         {"_id": oid},
@@ -651,16 +716,17 @@ def update_deadline(project_id):
         project_id=project_id,
         card_id=None,
         user_id=str(current_user.get_id()),
-        nickname= current_user.nickname,
+        nickname=current_user.nickname,
         action="update_deadline",
         details={
-            "old_deadline": project.get('deadline').strftime("%Y-%m-%d") if project.get('deadline') else None,
+            "old_deadline": old_deadline_str,
             "new_deadline": new_deadline,
             "project_name": project["name"]
         }
     )
 
     return jsonify({"message": "마감일이 업데이트되었습니다.", "deadline": new_deadline}), 200
+
 
 # 모든 프로젝트의 목록을 반환
 @projects_bp.route("/projects", methods=["GET"])

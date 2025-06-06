@@ -44,6 +44,8 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 # 로그인 매니저 설정
 login_manager = LoginManager()
 login_manager.init_app(app)
+login_manager.login_view = 'auth.login'  # 로그인 페이지 경로 설정
+login_manager.login_message = "접근하려면 로그인이 필요합니다."
 
 # 사용자 모델
 class User:
