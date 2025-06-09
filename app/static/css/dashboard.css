@@ -508,8 +508,38 @@ body {
 }
 
 .notification-badge {
-    font-size: 0.75rem;
-    transform: translate(-50%, -50%);
+    font-size: 0.6em;
+    padding: 0.35em 0.6em;
+    top: -0.5em;
+    right: -0.5em;
+    border-radius: 50%;
+    min-width: 1.5em; /* 작은 뱃지라도 내용이 잘 보이도록 최소 너비 설정 */
+    height: 1.5em; /* 원형 유지를 위해 높이도 설정 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.sidebar-notification-badge {
+    font-size: 0.6em;
+    padding: 0.35em 0.6em;
+    top: 0;
+    right: 0;
+    transform: translate(50%, -50%);
+    border-radius: 50%;
+    min-width: 1.5em;
+    height: 1.5em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    position: absolute;
+    background-color: red; /* 배지 기본 색상 */
+}
+
+.sidebar-notification-badge.active {
+    display: block;
 }
 
 #notificationsToggle {

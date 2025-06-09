@@ -27,14 +27,8 @@
                     </span>
                 </a>
                 <div id="notificationsList" class="list-group mt-2" style="display: none;">
-                    <!-- 알림 목록이 여기에 동적으로 추가됩니다 -->
+                    <!-- 알림 목록과 초대 목록이 여기에 동적으로 추가됩니다 -->
                 </div>
-            </li>
-            <li class="list-group-item">
-                <a href="#" class="text-decoration-none text-dark" id="toggleInvitations">
-                    Invitations <i class="bi bi-chevron-down float-end"></i>
-                </a>
-                <ul id="invitationList" class="list-group mt-2" style="display: none;"></ul>
             </li>
             <li class="list-group-item">
                 <a href="{{ url_for('auth.logout') }}" class="text-decoration-none text-dark">Logout</a>
@@ -48,6 +42,7 @@
             <div class="container-fluid position-relative">
                 <button class="btn btn-outline-light position-fixed top-0 start-0 m-2" id="menuToggle" style="z-index: 1100;">
                     <i class="bi bi-list"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger sidebar-notification-badge" style="display: none;"></span>
                 </button>
                 <a class="navbar-brand navbar-brand-center" href="#">Scramble</a>
                 <div class="navbar-nav ms-auto">
@@ -129,7 +124,6 @@
     <script src="{{ url_for('static', filename='js/dashboard/modals.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/cards.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/projects.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dashboard/invitations.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/chat.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dashboard/notifications.js') }}"></script>
