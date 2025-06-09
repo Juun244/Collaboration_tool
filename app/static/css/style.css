@@ -1,0 +1,115 @@
+:root {
+  --bg-color: #f9f9fb;
+  --text-color: #333;
+  --card-bg: #ffffff;
+  --alert-bg: #f8f9fa;
+  --btn-primary: #0d6efd;
+  --btn-success: #198754;
+  --link-color: #ffc107;
+}
+
+body.dark-mode {
+  --bg-color: #1e1e1e;
+  --text-color: #eaeaea;
+  --card-bg: #2c2c2c;
+  --alert-bg: #333;
+  --btn-primary: #4c8aff;
+  --btn-success: #3ddc97;
+  --link-color: #ffd966;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+}
+
+nav a.navbar-brand {
+  color: var(--link-color);
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.container {
+  background: var(--card-bg);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+}
+
+h2 {
+  font-weight: 600;
+  text-align: center;
+}
+
+.alert {
+  background-color: var(--alert-bg);
+  border: none;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.btn-primary {
+  background-color: var(--btn-primary);
+  border: none;
+}
+
+.btn-success {
+  background-color: var(--btn-success);
+  border: none;
+}
+
+.btn-toggle-dark {
+  position: absolute;
+  right: 1rem;
+  top: 1rem;
+  background: none;
+  border: none;
+  color: var(--link-color);
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.form-text, .invalid-feedback {
+  font-size: 0.9em;
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 1.5rem;
+  }
+
+  nav a.navbar-brand {
+    font-size: 1.25rem;
+  }
+}
+
+.btn-filled-danger {
+  background-color: #dc3545; 
+  color: white;             
+  border: 1px solid #dc3545;
+  transition: all 0.3s ease;
+}
+
+.btn-filled-danger:hover {
+  background-color: transparent;  
+  color: #dc3545;             
+  border: 1px solid #dc3545;
+}
+
+
+.btn-filled-warning {
+  background-color: #ffc107; 
+  color: #3c1e1e;            
+  border: 1px solid #ffc107;
+  transition: all 0.3s ease;
+}
+
+.btn-filled-warning:hover {
+  background-color: transparent;
+  color: #ffc107;
+  border: 1px solid #ffc107;
+}
+

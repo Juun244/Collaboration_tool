@@ -1,30 +1,24 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>회원가입</title>
+  <meta charset="UTF-8">
+  <title>회원가입 | Scramble</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
-<style>
-  .flash-messages {
-    min-height: 60px;
-    margin-bottom: 20px;
-  }
-  .alert {
-    margin-bottom: 0;
-  }
-</style>
 <body>
-  <div class="container mt-5" style="max-width: 500px;">
-    <h2 class="mb-4 text-center">회원가입</h2>
+  <nav class="p-3 d-flex justify-content-between align-items-center">
+    <a href="/" class="navbar-brand mb-0 h1">Scramble</a>
+    <button class="btn btn-sm btn-outline-secondary btn-toggle-dark">🌓</button>
+  </nav>
+
+  <div class="container mt-4" style="max-width: 500px;">
+    <h2>회원가입</h2>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }}" role="alert">
-            {{ message }}
-          </div>
+          <div class="alert alert-{{ category }}">{{ message }}</div>
         {% endfor %}
       {% endif %}
     {% endwith %}
@@ -32,20 +26,17 @@
     <form method="POST" action="{{ url_for('auth.register') }}" id="registerForm" novalidate>
       <div class="mb-3">
         <label for="nickname" class="form-label">닉네임</label>
-        <input type="text" class="form-control" id="nickname" name="nickname" placeholder="사용하실 닉네임" required>
-        <div class="form-text">다른 사용자와 겹치지 않게 설정해주세요.</div>
-        <div class="form-text" id="nicknameFeedback" style="font-size: 0.9em;"></div>
+        <input type="text" class="form-control" id="nickname" name="nickname" required>
+        <div class="form-text" id="nicknameFeedback"></div>
       </div>
       <div class="mb-3">
-        <label for="email" class="form-label">이메일 주소</label>
-        <input type="email" class="form-control" id="email" name="email" placeholder="example@email.com" required>
-        <div class="form-text">입력하신 이메일 주소로 인증 링크가 발송됩니다.</div>
+        <label for="email" class="form-label">이메일</label>
+        <input type="email" class="form-control" id="email" name="email" required>
         <div class="invalid-feedback" id="emailFeedback">유효한 이메일 주소를 입력하세요.</div>
       </div>
       <div class="mb-3">
         <label for="password" class="form-label">비밀번호</label>
         <input type="password" class="form-control" id="password" name="password" required>
-        <div class="form-text">8자 이상, 특수문자(!@#$%^&*(),.?":{}|<>) 포함 필수</div>
         <div class="invalid-feedback" id="passwordFeedback">비밀번호는 8자 이상이며, 특수문자를 포함해야 합니다.</div>
       </div>
       <div class="mb-3">
@@ -55,48 +46,11 @@
       </div>
       <button type="submit" class="btn btn-primary w-100">회원가입</button>
     </form>
-
-    <hr class="my-4">
-    <div class="text-center">
-      <a href="{{ url_for('auth.login') }}" class="btn btn-outline-secondary">이미 계정이 있으신가요? 로그인하기</a>
+    <div class="text-center mt-4">
+      <a href="{{ url_for('auth.login') }}" class="btn btn-link">이미 계정이 있으신가요? 로그인</a>
     </div>
   </div>
+
   <script src="{{ url_for('static', filename='js/register.js') }}"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      const nicknameInput = document.getElementById("nickname");
-      const feedback = document.getElementById("nicknameFeedback");
-
-      nicknameInput.addEventListener("input", async () => {
-        const nickname = nicknameInput.value.trim();
-        if (!nickname) {
-          feedback.textContent = "";
-          return;
-        }
-
-        try {
-          const response = await fetch("/check-nickname", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ nickname })
-          });
-
-          const data = await response.json();
-          if (data.exists) {
-            feedback.textContent = "⚠ 이미 사용 중인 닉네임입니다.";
-            feedback.style.color = "red";
-          } else {
-            feedback.textContent = "✔ 사용 가능한 닉네임입니다.";
-            feedback.style.color = "green";
-          }
-        } catch (error) {
-          feedback.textContent = "오류가 발생했습니다. 다시 시도해주세요.";
-          feedback.style.color = "red";
-        }
-      });
-    });
-  </script>
 </body>
 </html>
