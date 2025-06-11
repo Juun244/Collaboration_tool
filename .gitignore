@@ -19,3 +19,6 @@ __pycache__/
 
 # 기타
 .DS_Store
+
+# 댓글 업로드된 이미지 파일 제외
+app/static/Uploads/

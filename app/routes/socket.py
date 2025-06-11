@@ -355,14 +355,13 @@ def register_socket_events(socketio):
                     'type': 'card_created',
                     'timestamp': datetime.utcnow().isoformat()
                 }, room=member_nickname)
-
-        emit('card_created', {
-            'project_id': project_id,
-            'card': card,
-            'user_id': str(current_user.get_id()),
-            'nickname': current_user.nickname,
-            'timestamp': datetime.utcnow().isoformat()
-        }, room=project_id, include_self=False)
+                emit('card_created', {
+                'project_id': project_id,
+                'card': card,
+                'user_id': str(current_user.get_id()),
+                'nickname': current_user.nickname,
+                'timestamp': datetime.utcnow().isoformat()
+                },room=member_nickname)
 
     # 'delete_card' 이벤트 핸들러
     @socketio.on('delete_card')
@@ -533,326 +532,171 @@ def register_socket_events(socketio):
             'timestamp': timestamp
         }, room=project_id)
 
-    # 'set_due_date' 이벤트 핸들러
-    @socketio.on('set_due_date')
+    # 마감일 업데이트 이벤트
+    @socketio.on('set_project_deadline')
     @login_required
-    def handle_set_due_date(data):
+    def handle_set_project_deadline(data):
+        print(f"set_project_deadline 이벤트 수신: {data}")
         project_id = str(data.get('project_id'))
-        card_id = str(data.get('card_id'))
-        due_date = data.get('due_date')
-        user_id = str(current_user.get_id())
+        deadline = data.get('deadline')
+        user_id = str(data.get('user_id'))
+        nickname = data.get('nickname')
         timestamp = get_timestamp()
 
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if ObjectId(user_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        card = mongo.db.cards.find_one({'_id': ObjectId(card_id), 'project_id': ObjectId(project_id)})
-        if not card:
-            emit('notice', {'msg': '카드를 찾을 수 없습니다.', 'card_id': card_id}, to=request.sid)
-            return
-
         try:
-            due_date_dt = datetime.strptime(due_date, '%Y-%m-%d')
-        except ValueError:
-            emit('notice', {'msg': '유효하지 않은 날짜 형식입니다.', 'card_id': card_id}, to=request.sid)
-            return
+            project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
+            if not project:
+                print(f"프로젝트 찾을 수 없음: {project_id}")
+                emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
+                return
 
-        mongo.db.cards.update_one(
-            {'_id': ObjectId(card_id)},
-            {'$set': {'due_date': due_date_dt}}
-        )
+            if ObjectId(user_id) not in project.get('members', []):
+                print(f"사용자 {user_id}는 프로젝트 {project_id}의 멤버가 아님")
+                emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
+                return
 
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            nickname= current_user.nickname,
-            action='card_due_date_set',
-            details={
-                'title': card['title'],
-                'due_date': due_date
-            }
-        )
+            if deadline:
+                try:
+                    datetime.strptime(deadline, '%Y-%m-%d')
+                except ValueError:
+                    print(f"유효하지 않은 날짜 형식: {deadline}")
+                    emit('notice', {'msg': '유효하지 않은 날짜 형식입니다.', 'project_id': project_id}, to=request.sid)
+                    return
 
-        emit('due_date_set', {
-            'project_id': project_id,
-            'card_id': card_id,
-            'due_date': due_date,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
-        }, room=project_id)
+            emit('set_project_deadline', {
+                'project_id': project_id,
+                'deadline': deadline,
+                'user_id': user_id,
+                'nickname': nickname,
+                'timestamp': timestamp
+            }, room=project_id)
 
-    # 'update_due_date' 이벤트 핸들러
-    @socketio.on('update_due_date')
+            print(f"set_project_deadline 이벤트 전송: project_id={project_id}, deadline={deadline}")
+        except Exception as e:
+            print(f"set_project_deadline 처리 중 오류: {str(e)}")
+            emit('notice', {
+                'msg': '마감일 알림 처리 중 오류가 발생했습니다.',
+                'error': str(e),
+                'project_id': project_id
+            }, to=request.sid)
+
+
+    # 댓글 생성 이벤트 처리
+    @socketio.on('add_comment')
     @login_required
-    def handle_update_due_date(data):
+    def handle_add_comment(data):
+        print(f"add_comment 이벤트 수신: {data}")
         project_id = str(data.get('project_id'))
-        card_id = str(data.get('card_id'))
-        new_due_date = data.get('new_due_date')
-        user_id = str(current_user.get_id())
-        timestamp = get_timestamp()
-
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if ObjectId(user_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        card = mongo.db.cards.find_one({'_id': ObjectId(card_id), 'project_id': ObjectId(project_id)})
-        if not card:
-            emit('notice', {'msg': '카드를 찾을 수 없습니다.', 'card_id': card_id}, to=request.sid)
-            return
-
-        try:
-            new_due_date_dt = datetime.strptime(new_due_date, '%Y-%m-%d')
-        except ValueError:
-            emit('notice', {'msg': '유효하지 않은 날짜 형식입니다.', 'card_id': card_id}, to=request.sid)
-            return
-
-        old_due_date = card.get('due_date')
-        mongo.db.cards.update_one(
-            {'_id': ObjectId(card_id)},
-            {'$set': {'due_date': new_due_date_dt}}
-        )
-
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            nickname= current_user.nickname,
-            action='card_due_date_update',
-            details={
-                'title': card['title'],
-                'old_due_date': old_due_date.strftime('%Y-%m-%d') if old_due_date else None,
-                'new_due_date': new_due_date
-            }
-        )
-
-        emit('due_date_updated', {
-            'project_id': project_id,
-            'card_id': card_id,
-            'new_due_date': new_due_date,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
-        }, room=project_id)
-
-    # 'create_comment' 이벤트 핸들러
-    @socketio.on('create_comment')
-    @login_required
-    def handle_create_comment(data):
-        print(f"Received create_comment event: {data}")
-        project_id = str(data.get('project_id'))
+        comment_id = str(data.get('comment_id'))
         content = data.get('content')
-        user_id = str(current_user.get_id())
+        user_id = str(data.get('author_id'))
+        nickname = data.get('author_name')
+        image_url = data.get('image_url') or None
         timestamp = get_timestamp()
 
-        print(f"Processing comment creation: project_id={project_id}, user_id={user_id}")
+        try:
+            project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
+            if not project:
+                print(f"프로젝트 찾을 수 없음: {project_id}")
+                emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
+                return
 
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            print(f"Project not found: {project_id}")
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
+            if ObjectId(user_id) not in project.get('members', []):
+                print(f"사용자 {user_id}는 프로젝트 {project_id}의 멤버가 아님")
+                emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
+                return
 
-        if ObjectId(user_id) not in project.get('members', []):
-            print(f"User {user_id} is not a member of project {project_id}")
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if not content:
-            print("Comment content is empty")
-            emit('notice', {'msg': '댓글 내용이 필요합니다.'}, to=request.sid)
-            return
-
-        new_comment = {
-            'project_id': ObjectId(project_id),
-            'author_id': ObjectId(user_id),
-            'author_name': current_user.nickname,
-            'content': content,
-            'created_at': datetime.utcnow()
-        }
-
-        result = mongo.db.comments.insert_one(new_comment)
-        comment_id = str(result.inserted_id)
-        print(f"Comment created with ID: {comment_id}")
-
-        # 프로젝트 멤버들에게 알림 전송
-        members = project.get('members', [])
-        print(f"Sending notifications to {len(members)} members")
-        
-        for member in members:
-            member_nickname = mongo.db.users.find_one({'_id': member}).get('nickname')
-            if member_nickname and str(member) != user_id:  # 자신을 제외한 멤버들에게만 알림
-                print(f"Sending notification to member: {member_nickname}")
-                notification_message = f'[{project["name"]}] {current_user.nickname}님이 새로운 댓글을 달았습니다.'
-                notification_data = {
-                    'user_id': member,
-                    'message': notification_message,
-                    'type': 'new_comment',
-                    'timestamp': datetime.utcnow(),
-                    'read': False,
-                    'project_id': ObjectId(project_id),
-                    'comment_id': comment_id
+            emit('create_comment', {
+                'project_id': project_id,
+                'comment': {
+                    'id': comment_id,
+                    'content': content,
+                    'user_id': user_id,
+                    'nickname': nickname,
+                    'image_url': image_url,
+                    'timestamp': timestamp
                 }
-                mongo.db.notifications.insert_one(notification_data)
-                emit('notification', {
-                    'message': notification_message,
-                    'type': 'new_comment',
-                    'project_id': project_id,
-                    'project_name': project['name'],
-                    'author_name': current_user.nickname,
-                    'timestamp': datetime.utcnow().isoformat() # ISO 8601 형식으로 전송
-                }, room=member_nickname)
+            }, room=project_id)
 
-        # 댓글 생성 이벤트 전송
-        emit('comment_created', {
+            members = project.get('members', [])
+            print(f"{len(members)}명의 멤버에게 알림 전송")
+            for member in members:
+                member_data = mongo.db.users.find_one({'_id': member})
+                if not member_data:
+                    print(f"멤버 ID {member}에 대한 사용자 정보 없음")
+                    continue
+                member_nickname = member_data.get('nickname')
+                if member_nickname and str(member) != user_id:
+                    print(f"멤버 {member_nickname}에게 알림 전송")
+                    notification_message = f'[{project["name"]}] {nickname}님이 새로운 댓글을 달았습니다.'
+                    notification_data = {
+                        'user_id': member,
+                        'message': notification_message,
+                        'type': 'new_comment',
+                        'timestamp': datetime.utcnow(),
+                        'read': False,
+                        'project_id': ObjectId(project_id),
+                        'comment_id': comment_id
+                    }
+                    mongo.db.notifications.insert_one(notification_data)
+                    emit('notification', {
+                        'message': notification_message,
+                        'type': 'new_comment',
+                        'project_id': project_id,
+                        'project_name': project['name'],
+                        'author_name': nickname,
+                        'timestamp': datetime.utcnow().isoformat()
+                    }, room=member_nickname)
+
+        except Exception as e:
+            print(f"add_comment 처리 중 오류: {str(e)}")
+            emit('notice', {'msg': '댓글 알림 처리 중 오류가 발생했습니다.', 'error': str(e)}, to=request.sid)
+
+    # 댓글 수정 이벤트 처리
+    @socketio.on('edit_comment')
+    @login_required
+    def handle_edit_comment(data):
+        print(f"edit_comment 이벤트 수신: {data}")
+        project_id = str(data.get('project_id'))  # 프로젝트 ID
+        comment_id = str(data.get('comment_id'))  # 댓글 ID
+        content = data.get('content')  # 댓글 내용
+        image_url = data.get('image_url') or None  # 이미지 URL (선택적)
+        delete_image = data.get('delete_image') == '1'  # 이미지 삭제 여부
+        user_id = str(data.get('author_id'))  # 작성자 ID
+        nickname = data.get('author_name')  # 작성자 닉네임
+        timestamp = get_timestamp()  # 타임스탬프 생성
+
+        # comment_edited 이벤트 브로드캐스트
+        emit('comment_edited', {
             'project_id': project_id,
-            'comment_id': comment_id,
-            'content': content,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
+            'comment': {
+                'id': comment_id,
+                'content': content,
+                'image_url': image_url,
+                'delete_image': delete_image,
+                'user_id': user_id,
+                'nickname': nickname,
+                'timestamp': timestamp
+            }
         }, room=project_id)
 
-    # 'delete_comment' 이벤트 핸들러
+    # 댓글 삭제 이벤트 처리
     @socketio.on('delete_comment')
     @login_required
     def handle_delete_comment(data):
-        project_id = str(data.get('project_id'))
-        comment_id = str(data.get('comment_id'))
-        card_id = str(data.get('card_id')) if data.get('card_id') else None
-        user_id = str(current_user.get_id())
-        timestamp = get_timestamp()
+        print(f"delete_comment 이벤트 처리 시작: data={data}, socket_id={request.sid}")
+        
+        project_id = str(data.get('project_id'))  # 프로젝트 ID
+        comment_id = str(data.get('comment_id'))  # 댓글 ID
+        user_id = str(current_user.get_id())  # 작성자 ID
 
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if ObjectId(user_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        # 댓글 쿼리 조건 설정
-        comment_query = {'_id': ObjectId(comment_id), 'project_id': ObjectId(project_id)}
-        if card_id:
-            comment_query['card_id'] = ObjectId(card_id)
-
-        comment = mongo.db.comments.find_one(comment_query)
-        if not comment:
-            emit('notice', {'msg': '댓글을 찾을 수 없습니다.', 'comment_id': comment_id}, to=request.sid)
-            return
-
-        if str(comment['author_id']) != user_id:
-            emit('notice', {'msg': '댓글 삭제 권한이 없습니다.', 'comment_id': comment_id}, to=request.sid)
-            return
-
-        if comment.get('image_filename'):
-            file_path = os.path.join(current_app.static_folder, 'uploads', comment['image_filename'])
-            if os.path.exists(file_path):
-                os.remove(file_path)
-
-        mongo.db.comments.delete_one({'_id': ObjectId(comment_id)})
-
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            nickname= current_user.nickname,
-            action='comment_delete',
-            details={
-                'content': comment['content'],
-                'project_name': project['name']
-            }
-        )
-
+        # comment_deleted 이벤트 브로드캐스트
+        print(f"comment_deleted 이벤트 전송: room={project_id}, data={{project_id: {project_id}, comment_id: {comment_id}}}")
         emit('comment_deleted', {
             'project_id': project_id,
-            'comment_id': comment_id,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
+            'comment_id': comment_id
         }, room=project_id)
 
-    # 'update_comment' 이벤트 핸들러
-    @socketio.on('update_comment')
-    @login_required
-    def handle_update_comment(data):
-        project_id = str(data.get('project_id'))
-        comment_id = str(data.get('comment_id'))
-        card_id = str(data.get('card_id')) if data.get('card_id') else None
-        new_content = data.get('new_content')
-        user_id = str(current_user.get_id())
-        timestamp = get_timestamp()
-
-        project = mongo.db.projects.find_one({'_id': ObjectId(project_id)})
-        if not project:
-            emit('notice', {'msg': '프로젝트를 찾을 수 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        if ObjectId(user_id) not in project.get('members', []):
-            emit('notice', {'msg': '프로젝트에 대한 권한이 없습니다.', 'project_id': project_id}, to=request.sid)
-            return
-
-        # 댓글 쿼리 조건 설정
-        comment_query = {'_id': ObjectId(comment_id), 'project_id': ObjectId(project_id)}
-        if card_id:
-            comment_query['card_id'] = ObjectId(card_id)
-
-        comment = mongo.db.comments.find_one(comment_query)
-        if not comment:
-            emit('notice', {'msg': '댓글을 찾을 수 없습니다.', 'comment_id': comment_id}, to=request.sid)
-            return
-
-        if str(comment['author_id']) != user_id:
-            emit('notice', {'msg': '댓글 수정 권한이 없습니다.', 'comment_id': comment_id}, to=request.sid)
-            return
-
-        if not new_content:
-            emit('notice', {'msg': '댓글 내용이 필요합니다.', 'comment_id': comment_id}, to=request.sid)
-            return
-
-        mongo.db.comments.update_one(
-            {'_id': ObjectId(comment_id)},
-            {'$set': {'content': new_content}}
-        )
-
-        log_history(
-            mongo=mongo,
-            project_id=project_id,
-            card_id=card_id,
-            user_id=user_id,
-            nickname= current_user.nickname,
-            action='comment_update',
-            details={
-                'old_content': comment['content'],
-                'new_content': new_content,
-                'project_name': project['name']
-            }
-        )
-
-        emit('comment_updated', {
-            'project_id': project_id,
-            'comment_id': comment_id,
-            'content': new_content,
-            'user_id': user_id,
-            'nickname': current_user.nickname,
-            'timestamp': timestamp
-        }, room=project_id)
 
     @socketio.on("join_dashboard")
     def handle_join(data):

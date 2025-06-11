@@ -24,7 +24,6 @@ document.addEventListener("DOMContentLoaded", () => {
   initializeModals();
   initializeCards();
   initializeProjects();
-  initializeInvitations();
   
 
   // ✅ 프로젝트 카드 클릭 시 projectBoardModal에 projectId 설정
