@@ -1,0 +1,30 @@
+<!-- Search Modal -->
+<div class="modal fade" id="searchModal" tabindex="-1" aria-labelledby="searchModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="searchModalLabel">프로젝트 및 카드 검색</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="searchForm">
+          <div class="mb-3">
+            <label for="searchInput" class="form-label">키워드</label>
+            <input type="text" class="form-control" id="searchInput" placeholder="프로젝트 이름, 설명, 카드 제목 또는 설명 입력" />
+          </div>
+          <div class="mb-3">
+            <label for="dueDateInput" class="form-label">마감기한</label>
+            <input type="date" class="form-control" id="dueDateInput" placeholder="마감기한 선택" />
+          </div>
+          <button type="submit" class="btn btn-primary w-100">검색</button>
+        </form>
+        <div id="searchResults" class="mt-3">
+          <p class="text-muted">검색 결과를 여기에 표시합니다.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+      </div>
+    </div>
+  </div>
+</div>
