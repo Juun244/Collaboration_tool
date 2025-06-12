@@ -61,6 +61,20 @@ async function loadHistory(projectId) {
 
       if (shouldDisplay) {
         switch (entry.action) {
+          case "project_update":
+        {
+          const { old_name, new_name, old_description, new_description } = entry.details;
+          const parts = [];
+          if (old_name && new_name && old_name !== new_name) {
+            parts.push(`프로젝트 이름 변경: ${old_name} → ${new_name}`);
+          }
+          if (old_description !== undefined && old_description !== new_description) {
+            parts.push(`프로젝트 설명 변경: ${old_description} → ${new_description}`);
+          }
+          detailText = parts.join(" / ");
+        }
+        break;
+
           case "update_deadline":
             if (entry.details.new_deadline == null){
               detailText = entry.details.old_deadline

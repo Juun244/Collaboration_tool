@@ -50,8 +50,9 @@ function initializeModals() {
   // 프로젝트 보드 모달 열기
   document.addEventListener('click', async function(e) {
     const card = e.target.closest('.project-card');
+    // edit-project-btn 클릭은 보드 모달 열기에서 제외
     if (!card ||
-        e.target.closest(".invite-member, .open-chat-btn, .add-card-btn")
+        e.target.closest(".invite-member, .open-chat-btn, .add-card-btn, .edit-project-btn")
     ) return;
 
     // wrapper, projectId, modal title/데이터 세팅

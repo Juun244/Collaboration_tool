@@ -74,10 +74,16 @@
                      data-deadline="{{ project.deadline }}"
                      data-d-day="{{ project.d_day }}">
                     <div class="card project-card position-relative">
+                        <button type="button"
+                            class="btn btn-sm btn-outline-secondary edit-project-btn position-absolute top-0 end-0 m-2"
+                            data-project-id="{{ project._id }}"
+                            aria-label="Edit Project">
+                        <i class="bi bi-pencil"></i>
+                    </button>
                         <!-- 카드 본문 -->
                         <div class="card-body">
-                            <h5 class="card-title">{{ project.name }}</h5>
-                            <p class="card-text truncate-description">{{ project.description }}</p>
+                            <h5 class="card-title" title="{{ project.name }}">{{ project.name }}</h5>
+                            <p class="card-text truncate-description" title="{{ project.description }}">{{ project.description }}</p>
                             {% if project.deadline %}{% endif %}
                             <div class="card-container mt-3" data-project-id="{{ project._id }}"></div>
                             <span class="member-count" data-members="{{ project.members|length }}">{{ project.members|length }} members</span>
