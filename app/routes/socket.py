@@ -2,7 +2,7 @@
 from flask import request
 from flask_socketio import emit, join_room, leave_room
 from flask_login import current_user, login_required
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson.objectid import ObjectId
 from app import mongo
 from app.utils.history import log_history
@@ -15,6 +15,76 @@ def register_socket_events(socketio):
     # 타임스탬프를 가져오는 헬퍼 함수
     def get_timestamp():
         return datetime.utcnow().isoformat() + "Z" # ISO 8601 형식 (UTC)
+
+    # 마감일 알림 체크 함수
+    def check_deadline_notifications(user_id):
+        """사용자의 프로젝트 중 마감일 3일 이내인 프로젝트에 대한 알림을 생성합니다."""
+        try:
+            # 오늘 날짜 (자정 기준)
+            today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # 3일 후까지의 마감일을 가진 프로젝트 조회
+            three_days_later = today + timedelta(days=3)
+            
+            # 사용자가 멤버인 프로젝트 중 마감일이 3일 이내인 프로젝트들
+            projects = mongo.db.projects.find({
+                'members': ObjectId(user_id),
+                'deadline': {
+                    '$gte': today,
+                    '$lte': three_days_later
+                }
+            })
+            
+            for project in projects:
+                deadline = project['deadline']
+                days_until_deadline = (deadline - today).days
+                
+                # 이미 오늘 해당 프로젝트에 대한 마감일 알림이 있는지 확인
+                today_start = today
+                today_end = today + timedelta(days=1)
+                
+                existing_notification = mongo.db.notifications.find_one({
+                    'user_id': ObjectId(user_id),
+                    'project_id': project['_id'],
+                    'type': 'deadline_reminder',
+                    'timestamp': {
+                        '$gte': today_start,
+                        '$lt': today_end
+                    }
+                })
+                
+                # 오늘 아직 알림이 없다면 생성
+                if not existing_notification:
+                    notification_message = f'[{project["name"]}] 마감일이 {days_until_deadline}일 남았습니다.'
+                    
+                    notification_data = {
+                        'user_id': ObjectId(user_id),
+                        'message': notification_message,
+                        'type': 'deadline_reminder',
+                        'timestamp': datetime.utcnow(),
+                        'read': False,
+                        'project_id': project['_id']
+                    }
+                    
+                    # DB에 알림 저장
+                    mongo.db.notifications.insert_one(notification_data)
+                    
+                    # 실시간 알림 전송
+                    user = mongo.db.users.find_one({'_id': ObjectId(user_id)})
+                    if user and user.get('nickname'):
+                        emit('notification', {
+                            'id': str(notification_data['_id']),
+                            'message': notification_message,
+                            'type': 'deadline_reminder',
+                            'timestamp': notification_data['timestamp'].isoformat(),
+                            'read': False,
+                            'project_id': str(project['_id'])
+                        }, room=user['nickname'])
+                        
+                        logger.info(f"마감일 알림 전송: {user['nickname']} - {project['name']} (D-{days_until_deadline})")
+                        
+        except Exception as e:
+            logger.error(f"마감일 알림 체크 중 오류: {str(e)}")
 
     # 'join' 이벤트 핸들러
     @socketio.on('join')
@@ -228,15 +298,28 @@ def register_socket_events(socketio):
             {'$push': {'invitations': ObjectId(project_id)}}
         )
 
-        # 초대 이벤트 전송
-        emit('invite_project', {
+        # 초대 알림을 DB에 저장
+        notification_message = f'프로젝트 "{project["name"]}"에 초대되었습니다.'
+        notification_data = {
+            'user_id': ObjectId(invitee['_id']),
+            'message': notification_message,
+            'type': 'project_invited',
+            'timestamp': datetime.utcnow(),
+            'read': False,
+            'project_id': ObjectId(project_id)
+        }
+        mongo.db.notifications.insert_one(notification_data)
+
+        # 초대된 사용자에게 실시간 알림 전송
+        emit('notification', {
+            'id': str(notification_data['_id']),
+            'message': notification_message,
+            'type': 'project_invited',
             'project_id': project_id,
-            'inviter_id': inviter_id,
-            'inviter_nickname': current_user.nickname,
-            'invitee_nickname': invitee_nickname,
-            'timestamp': timestamp
-        }, room=invitee_nickname)
-        print(f"Sending project_invite to room {invitee_nickname}: {{project_id: {project_id}, invitee: {invitee_nickname}}}")
+            'project_name': project['name'],
+            'timestamp': notification_data['timestamp'].isoformat(),
+            'read': False
+        }, room=invitee['nickname'])
 
         # 프로젝트 멤버들에게 알림 전송
         for member in project.get('members', []):
@@ -247,16 +330,20 @@ def register_socket_events(socketio):
                     'user_id': member,
                     'message': notification_message,
                     'type': 'project_invite',
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': datetime.utcnow(),
+                    'read': False,
+                    'project_id': ObjectId(project_id)
                 }
                 mongo.db.notifications.insert_one(notification_data)
                 emit('notification', {
+                    'id': str(notification_data['_id']),
                     'message': notification_message,
                     'type': 'project_invite',
                     'project_id': project_id,
                     'project_name': project['name'],
                     'author_name': current_user.nickname,
-                    'timestamp': datetime.utcnow().isoformat() # ISO 8601 형식으로 전송
+                    'timestamp': notification_data['timestamp'].isoformat(),
+                    'read': False
                 }, room=member_nickname)
 
     # 'respond_invite' 이벤트 핸들러
@@ -351,9 +438,13 @@ def register_socket_events(socketio):
                 }
                 mongo.db.notifications.insert_one(notification_data)
                 emit('notification', {
+                    'id': str(notification_data['_id']),
                     'message': notification_message,
                     'type': 'card_created',
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': notification_data['timestamp'].isoformat(),
+                    'read': False,
+                    'project_id': str(project_id),
+                    'card_id': str(card.get('_id'))
                 }, room=member_nickname)
                 emit('card_created', {
                 'project_id': project_id,
@@ -412,9 +503,13 @@ def register_socket_events(socketio):
                 }
                 mongo.db.notifications.insert_one(notification_data)
                 emit('notification', {
+                    'id': str(notification_data['_id']),
                     'message': notification_message,
                     'type': 'card_deleted',
-                    'timestamp': datetime.utcnow().isoformat()
+                    'timestamp': notification_data['timestamp'].isoformat(),
+                    'read': False,
+                    'project_id': str(project_id),
+                    'card_id': card_id
                 }, room=member_nickname)
 
         mongo.db.cards.delete_one({'_id': ObjectId(card_id)})
@@ -513,9 +608,13 @@ def register_socket_events(socketio):
                     }
                     mongo.db.notifications.insert_one(notification_data)
                     emit('notification', {
+                        'id': str(notification_data['_id']),
                         'message': notification_message,
                         'type': 'card_updated',
-                        'timestamp': datetime.utcnow().isoformat()
+                        'timestamp': notification_data['timestamp'].isoformat(),
+                        'read': False,
+                        'project_id': str(project_id),
+                        'card_id': card_id
                     }, room=member_nickname)
 
         mongo.db.cards.update_one(
@@ -640,12 +739,15 @@ def register_socket_events(socketio):
                     }
                     mongo.db.notifications.insert_one(notification_data)
                     emit('notification', {
+                        'id': str(notification_data['_id']),
                         'message': notification_message,
                         'type': 'new_comment',
                         'project_id': project_id,
                         'project_name': project['name'],
                         'author_name': nickname,
-                        'timestamp': datetime.utcnow().isoformat()
+                        'timestamp': notification_data['timestamp'].isoformat(),
+                        'read': False,
+                        'comment_id': str(comment_id)
                     }, room=member_nickname)
 
         except Exception as e:
@@ -699,11 +801,16 @@ def register_socket_events(socketio):
 
 
     @socketio.on("join_dashboard")
+    @login_required
     def handle_join(data):
         nickname = data.get("nickname")
         if nickname:
             join_room(nickname)
             print(f"{nickname} joined room: {nickname}")
+            
+            # 사용자가 대시보드에 접속할 때 마감일 알림 체크
+            user_id = current_user.get_id()
+            check_deadline_notifications(user_id)
 
     @socketio.on("card_moved")
     def broadcast_card_moved(data):
@@ -754,11 +861,13 @@ def register_socket_events(socketio):
 
         # 초대된 사용자에게 실시간 알림 전송
         emit('notification', {
+            'id': str(notification_data['_id']),
             'message': notification_message,
             'type': 'project_invited',
             'project_id': project_id,
             'project_name': project['name'],
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': notification_data['timestamp'].isoformat(),
+            'read': False
         }, room=invited_user['nickname'])
 
         logger.info(f"Invitation sent to {invited_user['nickname']} for project {project['name']}")
@@ -805,21 +914,39 @@ def register_socket_events(socketio):
     @login_required
     def handle_get_notifications():
         user_id = ObjectId(current_user.get_id())
-        notifications = list(mongo.db.notifications.find({'user_id': user_id}).sort('timestamp', -1).limit(50))
+        logger.info(f"알림 요청 받음: 사용자 {current_user.nickname} (ID: {user_id})")
         
-        notifications_list = []
-        for notif in notifications:
-            notifications_list.append({
-                'id': str(notif['_id']),
-                'message': notif['message'],
-                'type': notif['type'],
-                'timestamp': notif['timestamp'].isoformat(),
-                'read': notif['read'],
-                'project_id': str(notif['project_id']) if 'project_id' in notif else None,
-                'card_id': str(notif['card_id']) if 'card_id' in notif else None,
-                'comment_id': str(notif['comment_id']) if 'comment_id' in notif else None
-            })
-        emit('notifications_loaded', {'notifications': notifications_list}, to=request.sid)
+        try:
+            notifications = list(mongo.db.notifications.find({'user_id': user_id}).sort('timestamp', -1).limit(50))
+            logger.info(f"DB에서 {len(notifications)}개의 알림 조회됨")
+            
+            notifications_list = []
+            for notif in notifications:
+                # timestamp 필드가 존재하고 유효한지 확인
+                timestamp_str = None
+                if 'timestamp' in notif and isinstance(notif['timestamp'], datetime):
+                    timestamp_str = notif['timestamp'].isoformat()
+                else:
+                    logger.warning(f"알림 ID {notif.get('_id')}에 유효하지 않거나 없는 timestamp 필드: {notif.get('timestamp')}. 현재 시간 사용.")
+                    timestamp_str = datetime.utcnow().isoformat() # 유효하지 않은 경우 현재 시간으로 대체
+
+                notifications_list.append({
+                    'id': str(notif['_id']),
+                    'message': notif['message'],
+                    'type': notif['type'],
+                    'timestamp': timestamp_str,
+                    'read': notif['read'],
+                    'project_id': str(notif['project_id']) if 'project_id' in notif else None,
+                    'card_id': str(notif['card_id']) if 'card_id' in notif else None,
+                    'comment_id': str(notif['comment_id']) if 'comment_id' in notif else None
+                })
+            
+            logger.info(f"알림 전송: {len(notifications_list)}개")
+            emit('notifications_loaded', {'notifications': notifications_list}, to=request.sid)
+            
+        except Exception as e:
+            logger.error(f"알림 로딩 중 오류 발생: {str(e)}")
+            emit('notifications_loaded', {'notifications': [], 'error': str(e)}, to=request.sid)
 
     @socketio.on('delete_notification')
     @login_required
@@ -827,8 +954,10 @@ def register_socket_events(socketio):
         notification_id = data.get('notification_id')
         user_id = ObjectId(current_user.get_id())
 
+        logger.info(f"삭제 요청 수신: notification_id={notification_id}, user_id={user_id}")
+
         if not notification_id:
-            logger.error("Missing notification_id for delete_notification")
+            logger.error("delete_notification에 notification_id가 없습니다.")
             return
 
         # 알림이 해당 사용자의 것인지 확인하고 삭제
@@ -838,13 +967,13 @@ def register_socket_events(socketio):
         })
 
         if result.deleted_count > 0:
-            logger.info(f"Notification {notification_id} deleted for user {user_id}")
+            logger.info(f"알림 {notification_id}가 사용자 {user_id}에 의해 성공적으로 삭제되었습니다.")
             emit('notification_deleted', {
                 'notification_id': notification_id,
                 'success': True
             }, to=request.sid)
         else:
-            logger.warning(f"Notification {notification_id} not found or not owned by user {user_id}")
+            logger.warning(f"알림 {notification_id}를 찾을 수 없거나 사용자 {user_id}의 소유가 아닙니다.")
             emit('notification_deleted', {
                 'notification_id': notification_id,
                 'success': False,
