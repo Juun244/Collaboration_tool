@@ -1,4 +1,4 @@
-window.socket = io({
+window.socket = io('https://scramble-fa0d.onrender.com', {
   transports: ['websocket', 'polling'],
   reconnection: true,
   reconnectionAttempts: 5,
