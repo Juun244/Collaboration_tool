@@ -230,23 +230,24 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
 
   const button = e.target;
   if (button.disabled) return; // 중복 클릭 방지
-  button.disabled = true;      // 클릭 후 즉시 비활성화
+  button.disabled = true;
 
   const form = document.getElementById("newProjectForm");
   const formData = new FormData(form);
   const projectId = formData.get("projectId");
 
-  //이름 미입력 시 생성안되게
+  // 이름 미입력 시 생성 방지
   const name = formData.get("name").trim();
   if (!name) {
     alert("프로젝트 이름을 입력해주세요.");
     button.disabled = false;
     return;
   }
+
   const payload = {
     name: formData.get("name"),
     description: formData.get("description"),
-    deadline: formData.get("deadline")
+    deadline: formData.get("deadline"),
   };
   const url = projectId ? `/projects/${projectId}` : "/projects/create";
   const method = projectId ? "PUT" : "POST";
@@ -256,12 +257,13 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
       method,
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (response.ok) {
       const project = await response.json();
       if (projectId) {
+        // 프로젝트 수정
         const wrap = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
         if (wrap) {
           wrap.querySelector(".card-title").textContent = project.name;
@@ -270,7 +272,10 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
         }
         alert("프로젝트가 수정되었습니다!");
       } else {
+        // 프로젝트 생성
         appendProjectCard(project);
+        window.currentProjectId = project.id; // 프로젝트 ID 업데이트
+        socket.emit('join', project.id);
         alert("프로젝트가 생성되었습니다!");
       }
 
@@ -290,7 +295,7 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
     console.error("Project save error:", err);
     alert("오류가 발생했습니다.");
   } finally {
-    button.disabled = false; // 응답이 끝나면 버튼 다시 활성화
+    button.disabled = false;
   }
 });
 
