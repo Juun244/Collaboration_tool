@@ -235,6 +235,14 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
   const form = document.getElementById("newProjectForm");
   const formData = new FormData(form);
   const projectId = formData.get("projectId");
+
+  //이름 미입력 시 생성안되게
+  const name = formData.get("name").trim();
+  if (!name) {
+    alert("프로젝트 이름을 입력해주세요.");
+    button.disabled = false;
+    return;
+  }
   const payload = {
     name: formData.get("name"),
     description: formData.get("description"),
@@ -324,6 +332,14 @@ document.querySelector('[data-bs-toggle="modal"][data-bs-target="#newProjectModa
     const dlGroup = form.querySelector('input[name="deadline"]')?.closest('.mb-3');
     if (dlGroup) dlGroup.classList.remove('d-none');
  });
+
+ // 프로젝트에서 엔터 키 입력 시 프로젝트 생성
+ document.getElementById("newProjectForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  // 버튼 클릭과 동일한 로직 실행
+  document.getElementById("createProject").click();
+});
 
 
 
