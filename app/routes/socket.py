@@ -163,32 +163,20 @@ def register_socket_events(socketio):
 
         if not project_id or not action:
             return
+        project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
+        if not project:
+            return
 
-        if action == "삭제":
-            # 삭제된 프로젝트는 DB에서 사라졌으므로, 이전 members 리스트를 직접 찾아야 함
-            deleted_project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
-            if deleted_project:
-                member_ids = deleted_project.get("members", [])
-            else:
-                # 캐싱 또는 이전 정보를 이용해야 하지만 예외적으로 owner 외엔 수신할 수 없음
-                member_ids = []
-        else:
-            # 나가기일 경우 현재 멤버 정보 조회
-            project = mongo.db.projects.find_one({"_id": ObjectId(project_id)})
-            if not project:
-                return
-            member_ids = project.get("members", [])
+        emit("project_updated", {
+       "project_id": project_id,
+       "action": action,
+       "user_nickname": user_nickname,
+       "user_id": user_id,
+       "name": project.get("name", ""),
+       "description": project.get("description", ""),
+       "deadline": project.get("deadline").strftime("%Y-%m-%d") if project.get("deadline") else None
+   }, room=project_id)
 
-        for member_id in member_ids:
-            user = mongo.db.users.find_one({"_id": member_id})
-            if user:
-                emit("project_updated", {
-                    "project_id": project_id,
-                    "action": action,
-                    "user_nickname": user_nickname,
-                    "user_id": user_id
-                }, room=user["nickname"])
-                print(f"aaaaa!!@@@{user['nickname']}")
 
         print(f"📢 project_updated 이벤트: {action} by {user_nickname} for {project_id}")
 

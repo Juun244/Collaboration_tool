@@ -8,6 +8,7 @@ from app.utils.history import log_history
 import os
 import uuid
 from werkzeug.utils import secure_filename
+from flask_socketio import emit
 
 projects_bp = Blueprint('projects', __name__)
 
@@ -198,6 +199,82 @@ def get_project(project_id):
         }), 200
     logger.error(f"Project not found or user has no access: {project_id}")
     return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
+
+@projects_bp.route("/projects/<project_id>", methods=["PUT"])
+@login_required
+def edit_project(project_id):
+    oid = safe_object_id(project_id)
+    if not oid:
+        return jsonify({"message": "유효하지 않은 프로젝트 ID입니다."}), 400
+
+    data = request.get_json() or {}
+    update_fields = {}
+    if "name" in data:
+        update_fields["name"] = data["name"].strip()
+    if "description" in data:
+        update_fields["description"] = data["description"].strip()
+    if "deadline" in data:
+        try:
+            update_fields["deadline"] = datetime.strptime(data["deadline"], "%Y-%m-%d")
+        except ValueError:
+            # 잘못된 날짜 포맷은 무시
+            pass
+
+    if not update_fields:
+        return jsonify({"message": "변경할 내용이 없습니다."}), 400
+
+    old_proj = mongo.db.projects.find_one(
+        {"_id": oid}, {"name":1, "description":1}
+    )
+
+    # 2) 실제 업데이트
+    result = mongo.db.projects.update_one(
+        {"_id": oid, "members": safe_object_id(current_user.get_id())},
+        {"$set": update_fields}
+    )
+
+    # 3) 히스토리 기록
+    if result.modified_count:
+        details = {}
+        # 제목 변경 감지
+        if "name" in update_fields and old_proj["name"] != update_fields["name"]:
+            details["old_name"] = old_proj["name"]
+            details["new_name"] = update_fields["name"]
+        # 설명 변경 감지
+        if "description" in update_fields and old_proj.get("description","") != update_fields["description"]:
+            details["old_description"] = old_proj.get("description","")
+            details["new_description"] = update_fields["description"]
+        if details:
+            # 편의를 위해 post-history에 보일 project_name 넣어줌
+            details["project_name"] = update_fields.get("name", old_proj["name"])
+            log_history(
+                mongo=mongo,
+                project_id=project_id,
+                card_id=None,
+                user_id=str(current_user.get_id()),
+                nickname=current_user.nickname,
+                action="project_update",
+                details=details
+            )
+
+    if result.modified_count:
+        proj = mongo.db.projects.find_one({"_id": oid})
+        emit('project_updated', {
+     'project_id': project_id,
+     'action': '수정',
+     'user_nickname': current_user.nickname,
+     'name': proj.get("name", ""),
+     'description': proj.get("description", ""),
+     'deadline': proj.get("deadline").strftime("%Y-%m-%d") if proj.get("deadline") else None
+   }, room=project_id, namespace='/')
+        return jsonify({
+            "id": str(proj["_id"]),
+            "name": proj.get("name", ""),
+            "description": proj.get("description", ""),
+            "deadline": proj.get("deadline").strftime("%Y-%m-%d") if proj.get("deadline") else None
+        }), 200
+
+    return jsonify({"message": "권한이 없거나 변경된 사항이 없습니다."}), 403
 
 @projects_bp.route('/projects/<project_id>/invite', methods=['POST'])
 @login_required

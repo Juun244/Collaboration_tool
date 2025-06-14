@@ -35,6 +35,13 @@ body {
     display: inline-block;
     transition: transform 0.2s ease;
   }
+
+  .project-card .card-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding-right: 2rem;
+}
   .project-card {
     height: 100%;
     position: relative;
@@ -285,6 +292,12 @@ body {
     display: block;
     transition: all 0.3s ease;
   }
+  .task-card .card-title,
+  .task-card .card-description {
+   overflow: hidden;
+   white-space: nowrap;
+   text-overflow: ellipsis;
+ } 
   .member-count {
     font-size: 0.9rem;
     color: #6c757d;

@@ -49,7 +49,10 @@ function initializeModals() {
   // 프로젝트 보드 모달 열기
   document.addEventListener('click', async function(e) {
     const card = e.target.closest('.project-card');
-    if (!card || e.target.closest(".invite-member, .open-chat-btn, .add-card-btn")) return;
+
+    if (!card ||
+        e.target.closest(".invite-member, .open-chat-btn, .add-card-btn, .edit-project-btn")
+    ) return;
 
     // wrapper, projectId, modal title/데이터 세팅
     const wrapper = card.closest('.project-card-wrapper');

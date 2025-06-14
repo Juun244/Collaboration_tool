@@ -98,6 +98,13 @@ function initializeProjects() {
 
   // 프로젝트 업데이트 이벤트
   socket.on("project_updated", (data) => {
+    if (data.action === "수정") {
+   const cardEl = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
+   if (!cardEl) return;
+   cardEl.querySelector(".card-title").textContent = data.name;
+   cardEl.querySelector(".truncate-description").textContent = data.description || "";
+   cardEl.dataset.deadline = data.deadline || "";
+ }
     console.log("프로젝트 업데이트 이벤트 수신:", data);
     const cardEl = document.querySelector(`.project-card-wrapper[data-project-id="${data.project_id}"]`);
 
@@ -218,39 +225,99 @@ function initializeProjects() {
 const currentUser = window.currentUser || { id: "", nickname: "" };
 
 // 프로젝트 생성
-document.getElementById("createProject").addEventListener("click", async () => {
-    const form = document.getElementById("newProjectForm");
-    const formData = new FormData(form);
-    const data = {
-      name: formData.get("name"),
-      description: formData.get("description"),
-      deadline: formData.get("deadline")
-    };
-    try {
-      const response = await fetch("/projects/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
-        const project = await response.json();
+document.getElementById("createProject").addEventListener("click", async (e) => {
+  e.preventDefault();
+  const form = document.getElementById("newProjectForm");
+  const formData = new FormData(form);
+  const projectId = formData.get("projectId");
+  const payload = {
+    name: formData.get("name"),
+    description: formData.get("description"),
+    deadline: formData.get("deadline")
+  };
+  const url = projectId ? `/projects/${projectId}` : "/projects/create";
+  const method = projectId ? "PUT" : "POST";
+
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const project = await response.json();
+      if (projectId) {
+        // 수정 시, 카드 UI 바로 갱신
+        const wrap = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
+        if (wrap) {
+          wrap.querySelector(".card-title").textContent = project.name;
+          wrap.querySelector(".truncate-description").textContent = project.description || "";
+          wrap.dataset.deadline = project.deadline || "";
+        }
+
+        alert("프로젝트가 수정되었습니다!");
+      } else {
         appendProjectCard(project);
         alert("프로젝트가 생성되었습니다!");
-
-        // 🔧 모달 닫기 안전 처리
-        const modalElement = document.getElementById("newProjectModal");
-        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
-        modalInstance.hide();
-        form.reset();
-      } else {
-        const error = await response.json();
-        alert(error.message || "프로젝트 생성 실패");
       }
-    } catch (err) {
-      console.error("Create project error:", err);
-      alert("오류가 발생했습니다.");
+
+      // 모달 닫기 및 초기화
+      const modalEl = document.getElementById("newProjectModal");
+      const modalInst = bootstrap.Modal.getOrCreateInstance(modalEl);
+      modalInst.hide();
+      form.reset();
+      form.projectId.value = "";
+      document.querySelector("#newProjectModalLabel").textContent = "Create New Project";
+      document.getElementById("createProject").textContent = "Create Project";
+    } else {
+      const error = await response.json().catch(() => ({}));
+      alert(error.message || "프로젝트 저장에 실패했습니다.");
     }
-  });
+  } catch (err) {
+    console.error("Project save error:", err);
+    alert("오류가 발생했습니다.");
+  }
+});
+
+// ─── 프로젝트 수정 버튼 클릭 시 모달 편집 모드 ───
+document.addEventListener("click", e => {
+  const btn = e.target.closest(".edit-project-btn");
+  if (!btn) return;
+  e.stopPropagation();
+
+  const projectId = btn.dataset.projectId;
+  const wrap = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
+  const name = wrap.querySelector(".card-title").textContent.trim();
+  const desc = wrap.querySelector(".truncate-description").textContent.trim();
+  const deadline = wrap.dataset.deadline || "";
+
+  const form = document.getElementById("newProjectForm");
+  form.name.value = name;
+  form.description.value = desc;
+  form.deadline.value = deadline;
+  const dlGroup = form.querySelector('input[name="deadline"]')?.closest('.mb-3');
+  if (dlGroup) dlGroup.classList.add('d-none');
+  form.projectId.value = projectId;
+
+  document.getElementById("newProjectModalLabel").textContent = "Edit Project";
+  document.getElementById("createProject").textContent = "Save Changes";
+
+  const modalEl = document.getElementById("newProjectModal");
+  bootstrap.Modal.getOrCreateInstance(modalEl).show();
+});
+
+document.querySelector('[data-bs-toggle="modal"][data-bs-target="#newProjectModal"]')
+  ?.addEventListener("click", () => {
+    const form = document.getElementById("newProjectForm");
+    form.reset();
+    form.projectId.value = "";
+    document.getElementById("newProjectModalLabel").textContent = "Create New Project";
+    document.getElementById("createProject").textContent = "Create Project";
+    const dlGroup = form.querySelector('input[name="deadline"]')?.closest('.mb-3');
+    if (dlGroup) dlGroup.classList.remove('d-none');
+ });
 
 
 
@@ -302,6 +369,14 @@ function appendProjectCard(project) {
   // 카드 내부 구성
   wrapper.innerHTML = `
     <div class="card project-card h-100 position-relative">
+      <!-- 프로젝트 수정 버튼 -->
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary edit-project-btn position-absolute top-0 end-0 m-2"
+              data-project-id="${project.id}"
+              aria-label="Edit Project">
+        <i class="bi bi-pencil"></i>
+      </button>
+
       <div class="card-body">
         <h5 class="card-title">${project.name}</h5>
         <p class="card-text truncate-description">${project.description || ''}</p>
