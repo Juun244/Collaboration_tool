@@ -1,6 +1,5 @@
-#로컬에서 주석처리
-#import eventlet
-#eventlet.monkey_patch()
+import eventlet
+eventlet.monkey_patch()
 
 from flask import Flask
 from flask_login import LoginManager
@@ -22,7 +21,6 @@ load_dotenv()
 
 # Flask 앱 설정
 app = Flask(__name__)
-#app.config["MONGO_URI"] = f"mongodb://{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 app.config["MONGO_URI"] = os.getenv('DB_STRING')
 app.secret_key = os.getenv('SECRET_KEY')
 
