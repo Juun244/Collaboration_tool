@@ -227,6 +227,11 @@ const currentUser = window.currentUser || { id: "", nickname: "" };
 // 프로젝트 생성
 document.getElementById("createProject").addEventListener("click", async (e) => {
   e.preventDefault();
+
+  const button = e.target;
+  if (button.disabled) return; // 중복 클릭 방지
+  button.disabled = true;      // 클릭 후 즉시 비활성화
+
   const form = document.getElementById("newProjectForm");
   const formData = new FormData(form);
   const projectId = formData.get("projectId");
@@ -249,14 +254,12 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
     if (response.ok) {
       const project = await response.json();
       if (projectId) {
-        // 수정 시, 카드 UI 바로 갱신
         const wrap = document.querySelector(`.project-card-wrapper[data-project-id="${projectId}"]`);
         if (wrap) {
           wrap.querySelector(".card-title").textContent = project.name;
           wrap.querySelector(".truncate-description").textContent = project.description || "";
           wrap.dataset.deadline = project.deadline || "";
         }
-
         alert("프로젝트가 수정되었습니다!");
       } else {
         appendProjectCard(project);
@@ -270,7 +273,7 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
       form.reset();
       form.projectId.value = "";
       document.querySelector("#newProjectModalLabel").textContent = "Create New Project";
-      document.getElementById("createProject").textContent = "Create Project";
+      button.textContent = "Create Project";
     } else {
       const error = await response.json().catch(() => ({}));
       alert(error.message || "프로젝트 저장에 실패했습니다.");
@@ -278,8 +281,11 @@ document.getElementById("createProject").addEventListener("click", async (e) => 
   } catch (err) {
     console.error("Project save error:", err);
     alert("오류가 발생했습니다.");
+  } finally {
+    button.disabled = false; // 응답이 끝나면 버튼 다시 활성화
   }
 });
+
 
 // ─── 프로젝트 수정 버튼 클릭 시 모달 편집 모드 ───
 document.addEventListener("click", e => {
