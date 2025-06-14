@@ -19,17 +19,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // 알림창이 닫힐 때만 읽음 처리
         if (wasOpen) {
             markAllAsRead();
+        } else {
+            // 알림창이 열릴 때 최신 알림 다시 로드
+            loadNotificationsAndInvitations();
         }
     });
 
     // 알림 및 초대 추가 함수
-    function addAlert(alertItem, type) {
+    function addAlert(alertItem) {
+        console.log("Adding alert:", alertItem); // Debugging: log the alert item
         const alertElement = document.createElement('div');
         alertElement.className = 'list-group-item notification-item';
         alertElement.dataset.alertId = alertItem.id;
 
-        if (type === 'notification') {
-            const time = alertItem.timestamp ? 
+        let time;
+        try {
+            time = alertItem.timestamp ? 
                 new Date(alertItem.timestamp).toLocaleString('ko-KR', {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -40,46 +45,82 @@ document.addEventListener('DOMContentLoaded', function() {
                     minute: '2-digit',
                     hour12: false
                 });
+        } catch (e) {
+            console.error("Error parsing timestamp for alert:", alertItem.id, alertItem.timestamp, e);
+            time = new Date().toLocaleTimeString('ko-KR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            }); // Fallback to current time
+        }
 
-            alertElement.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="flex-grow-1">
-                        <small class="text-muted">${time}</small>
-                        <p class="mb-1">${alertItem.message}</p>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        ${!alertItem.read ? '<span class="badge bg-primary">New</span>' : ''}
+        // 마감일 알림인지 확인
+        const isDeadlineReminder = alertItem.type === 'deadline_reminder';
+        // 프로젝트 초대 알림인지 확인
+        const isProjectInvited = alertItem.type === 'project_invited';
+        
+        // 마감일 알림이면 특별한 스타일 적용
+        if (isDeadlineReminder) {
+            alertElement.classList.add('deadline-notification');
+            alertElement.style.borderLeft = '4px solid #dc3545';
+            alertElement.style.backgroundColor = '#fff5f5';
+        }
+
+        // 프로젝트 초대 알림이면 초대 스타일 적용
+        if (isProjectInvited) {
+            alertElement.classList.add('invitation-item');
+        }
+
+        alertElement.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="flex-grow-1">
+                    <small class="text-muted">${time}</small>
+                    <p class="mb-1">${alertItem.message}</p>
+                    ${isDeadlineReminder ? '<small class="text-danger"><i class="bi bi-exclamation-triangle"></i> 마감일 알림</small>' : ''}
+                    ${isProjectInvited ? '<small class="text-primary"><i class="bi bi-person-plus"></i> 프로젝트 초대</small>' : ''}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    ${!alertItem.read ? '<span class="badge bg-primary">New</span>' : ''}
+                    ${isDeadlineReminder ? '<span class="badge bg-danger">마감일</span>' : ''}
+                    ${isProjectInvited ? '<span class="badge bg-info">초대</span>' : ''}
+                    ${isProjectInvited ? `
+                        <div class="invitation-actions" style="display: none;">
+                            <button class="btn btn-sm btn-success accept-invite" data-project-id="${alertItem.project_id}">수락</button>
+                            <button class="btn btn-sm btn-danger decline-invite" data-project-id="${alertItem.project_id}">거절</button>
+                        </div>
+                    ` : `
                         <button class="btn btn-sm btn-outline-danger delete-notification" data-notification-id="${alertItem.id}">
                             <i class="bi bi-trash"></i>
                         </button>
-                    </div>
+                    `}
                 </div>
-            `;
-            if (!alertItem.read) {
-                unreadCount++;
-                updateBadge();
-            }
-        } else {
-            alertElement.classList.add('invitation-item');
-            alertElement.innerHTML = `
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="flex-grow-1">
-                        <p class="mb-1"><strong>초대:</strong> ${alertItem.nickname || alertItem.name || "알 수 없음"}님의 프로젝트 초대</p>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <div class="invitation-actions" style="display: none;">
-                            <button class="btn btn-sm btn-success accept-invite" data-project-id="${alertItem.id}">수락</button>
-                            <button class="btn btn-sm btn-danger decline-invite" data-project-id="${alertItem.id}">거절</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            unreadCount++;
-            updateBadge();
-
+            </div>
+        `;
+        
+        // 마감일 알림 클릭 시 해당 프로젝트로 이동
+        if (isDeadlineReminder && alertItem.project_id) {
+            alertElement.style.cursor = 'pointer';
+            alertElement.addEventListener('click', function(e) {
+                if (e.target.closest('.delete-notification')) {
+                    return; // 삭제 버튼 클릭 시에는 프로젝트 이동하지 않음
+                }
+                
+                // 프로젝트 보드 모달 열기
+                const projectCard = document.querySelector(`.project-card-wrapper[data-project-id="${alertItem.project_id}"]`);
+                if (projectCard) {
+                    projectCard.click();
+                } else {
+                    console.log('프로젝트 카드를 찾을 수 없습니다:', alertItem.project_id);
+                }
+            });
+        }
+        
+        // 프로젝트 초대 알림 클릭 시 수락/거절 버튼 토글
+        if (isProjectInvited) {
             alertElement.addEventListener('click', function(event) {
                 if (event.target.closest('.accept-invite') || 
-                    event.target.closest('.decline-invite')) {
+                    event.target.closest('.decline-invite') ||
+                    event.target.closest('.delete-notification')) {
                     return;
                 }
                 const actionsDiv = this.querySelector('.invitation-actions');
@@ -87,6 +128,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     actionsDiv.style.display = actionsDiv.style.display === 'none' ? 'block' : 'none';
                 }
             });
+
+            // 수락/거절 버튼 이벤트 핸들러 추가
+            setTimeout(() => {
+                const acceptBtn = alertElement.querySelector('.accept-invite');
+                const declineBtn = alertElement.querySelector('.decline-invite');
+                
+                if (acceptBtn) {
+                    acceptBtn.addEventListener('click', handleInvitationResponse);
+                }
+                if (declineBtn) {
+                    declineBtn.addEventListener('click', handleInvitationResponse);
+                }
+            }, 100);
+        }
+        
+        if (!alertItem.read) {
+            unreadCount++;
+            updateBadge();
         }
 
         // 알림을 시간순으로 정렬하여 추가
@@ -142,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 모든 알림을 읽음 처리 (DB 연동)
     function markAllAsRead() {
-        if (unreadCount > 0 && !isNotificationsOpen) { // 알림창이 닫혀있을 때만 읽음 처리
+        if (unreadCount > 0) { // 읽지 않은 알림이 있을 때만 처리
             window.socket.emit('mark_all_notifications_as_read');
         }
     }
@@ -161,18 +220,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // Socket.IO를 통한 실시간 알림 수신 (DB 저장 후 전달됨)
     window.socket.on('notification', function(notification) {
         console.log('실시간 알림 수신:', notification);
-        addAlert(notification, 'notification');
+        
+        // 이미 존재하는 알림인지 확인
+        const existingNotification = notificationsList.querySelector(`[data-alert-id="${notification.id}"]`);
+        if (!existingNotification) {
+            addAlert(notification);
+            console.log(`새 알림 추가됨: ${notification.message}`);
+        } else {
+            console.log(`이미 존재하는 알림: ${notification.message}`);
+        }
     });
 
-    // 프로젝트 초대 이벤트 수신
+    // 프로젝트 초대 이벤트 수신 (더 이상 사용하지 않음 - notification 이벤트로 통합됨)
     window.socket.on("invite_project", data => {
         console.log("초대 이벤트 수신:", data);
-        addAlert({
-            id: data.project_id, 
-            nickname: data.invitee_nickname || "알 수 없음", 
-            message: `새로운 프로젝트 초대: ${data.project_name || ''} (${data.invitee_nickname || '알 수 없음'})` 
-        }, 'invitation');
-        loadNotificationsAndInvitations();
+        // 이 이벤트는 더 이상 사용하지 않음 - notification 이벤트로 통합됨
     });
 
     // 초대 응답 이벤트 수신 (수락/거절)
@@ -204,7 +266,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert("👤 " + nickname + " 님이 초대를 거절했습니다.");
             }
         }
-        loadNotificationsAndInvitations();
+        // 초대 응답 후 알림창 다시 로드하지 않음
     });
 
     // 알림 목록 외부 클릭 시 닫기
@@ -224,34 +286,36 @@ document.addEventListener('DOMContentLoaded', function() {
         notificationsList.innerHTML = ''; 
         unreadCount = 0; 
 
-        // Fetch regular notifications
+        // Socket.IO를 통해 알림 요청
         window.socket.emit('get_notifications');
+        console.log('get_notifications 이벤트 전송됨');
 
-        // Fetch invitations via HTTP GET (as in invitations.js)
-        try {
-            const response = await fetch("/invitations");
-            if (response.ok) {
-                const data = await response.json();
-                data.invitations.forEach(invitation => {
-                    addAlert(invitation, 'invitation');
-                });
-            } else {
-                const error = await response.json();
-                console.error("초대 목록 로드 실패:", error.message);
-            }
-        } catch (err) {
-            console.error("Load invitations error:", err);
-        }
         updateBadge(); 
         attachInvitationButtonHandlers(); 
     }
 
     // 서버로부터 저장된 알림 목록 수신 (regular notifications)
     window.socket.on('notifications_loaded', function(data) {
-        console.log('저장된 알림 수신:', data.notifications);
-        data.notifications.forEach(notification => {
-            addAlert(notification, 'notification');
-        });
+        console.log('저장된 알림 수신:', data);
+        
+        if (data.error) {
+            console.error('알림 로딩 오류:', data.error);
+            return;
+        }
+        
+        // 기존 알림들을 제거하고 새로 로드
+        notificationsList.innerHTML = '';
+        unreadCount = 0;
+        
+        if (data.notifications && data.notifications.length > 0) {
+            data.notifications.forEach(notification => {
+                addAlert(notification);
+            });
+            console.log(`총 ${data.notifications.length}개의 알림 로드됨, 읽지 않은 알림: ${unreadCount}개`);
+        } else {
+            console.log('로드된 알림이 없습니다.');
+        }
+        
         updateBadge(); 
     });
 
@@ -324,7 +388,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 const invitationItem = this.closest('.invitation-item');
                 if (invitationItem) {
                     invitationItem.remove();
-                    loadNotificationsAndInvitations(); 
+                    // 초대 수락/거절 후 알림창 다시 로드하지 않음
+                    // 또한, DB에서 해당 알림을 삭제하도록 서버에 요청
+                    const notificationToDeleteId = invitationItem.dataset.alertId;
+                    console.log("초대 알림 삭제 요청: ID", notificationToDeleteId);
+                    window.socket.emit('delete_notification', { notification_id: notificationToDeleteId });
                 }
             } else {
                 const error = await response.json();
@@ -360,5 +428,27 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // 초기 알림 및 초대 로드
-    loadNotificationsAndInvitations();
+    function initializeNotifications() {
+        console.log('알림 시스템 초기화 시작');
+        
+        // Socket.IO 연결 확인
+        if (window.socket && window.socket.connected) {
+            console.log('Socket.IO 연결됨, 알림 로드 시작');
+            loadNotificationsAndInvitations();
+        } else {
+            console.log('Socket.IO 연결 대기 중...');
+            // Socket.IO 연결 이벤트를 기다림
+            window.socket.on('connect', function() {
+                console.log('Socket.IO 연결됨, 알림 로드 시작');
+                loadNotificationsAndInvitations();
+            });
+        }
+    }
+
+    // 페이지 로드 완료 후 알림 시스템 초기화
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeNotifications);
+    } else {
+        initializeNotifications();
+    }
 }); 
