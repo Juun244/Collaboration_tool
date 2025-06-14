@@ -326,7 +326,7 @@ socket.on("message", (data) => {
 socket.on("notice", (data) => {
   console.log("Received notice:", data);
   if (data.project_id) {
-    appendSystemMessage(data.project_id, data.msg);
+    appendSystemMessage(data.project_id, data.msg || data.message);
   } else {
     console.error("project_id missing in notice data:", data);
   }

@@ -17,12 +17,14 @@ window.currentUser = {
       </div>
       <div class="modal-body">
         <div class="d-flex align-items-center px-4 mb-3">
-          <strong class="me-2">마감일:</strong>
-          <span id="modalDeadline" class="text-muted me-3"></span>
-          <span id="modalDday" class="badge text-white"></span>
-          <button id="editDeadlineBtn" class="btn btn-sm btn-outline-secondary ms-2">
-            <i class="bi bi-pencil"></i>
-          </button>
+          <div id="deadline-wrapper" class="d-flex align-items-center px-4 mb-3">
+            <strong class="me-2">마감일:</strong>
+            <span id="modalDeadline" class="text-muted me-3"></span>
+            <span id="modalDday" class="badge text-white"></span>
+            <button id="editDeadlineBtn" class="btn btn-sm btn-outline-secondary ms-2">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </div>
         </div>
 
         <button class="btn btn-secondary mb-3" id="backToAllProjects" style="display: none;">
@@ -55,7 +57,7 @@ window.currentUser = {
                      accept="image/*"
                      class="form-control form-control-sm me-2"
                      style="width:auto;" />
-              <button id="add-comment-btn" type="button" class="btn btn-primary">등록</button>
+              <button id="add-comment-btn" type="button" class="btn btn-primary" data-project-id="">등록</button>
             </div>
           </div>
         </div>

@@ -554,11 +554,13 @@ def add_comment(project_id):
     os.makedirs(upload_dir, exist_ok=True)
 
     image_filename = None
+    image_url = None
     if file and file.filename:
         ext = os.path.splitext(file.filename)[1]
         image_filename = f"{uuid.uuid4().hex}{ext}"
         save_path = os.path.join(upload_dir, image_filename)
         file.save(save_path)
+        image_url = f"/static/Uploads/{image_filename}"
         logger.info(f"Saved comment image as: {image_filename}")
 
     new_comment = {
@@ -583,11 +585,16 @@ def add_comment(project_id):
         action="comment_create",
         details={
             "content": content,
-            "project_name": project["name"]
+            "project_name": project["name"],
+            "image_added": bool(image_filename)
         }
     )
 
-    return jsonify({"message": "댓글이 추가되었습니다.", "id": comment_id}), 201
+    return jsonify({
+        "message": "댓글이 추가되었습니다.",
+        "id": comment_id,
+        "image_url": image_url
+    }), 201
 
 @projects_bp.route("/comments/<comment_id>", methods=["PUT"])
 @login_required
@@ -617,13 +624,14 @@ def edit_comment(comment_id):
     content = None
     delete_image = False
     new_file = None
+    image_url = None
     if request.content_type.startswith("application/json"):
         data = request.get_json()
         content = data.get("content", "").strip()
         delete_image = data.get("delete_image", False)
     else:
         content = request.form.get("content", "").strip()
-        delete_image = request.form.get("delete_image") == "1"
+        delete_image = request.form.get("delete_image") == '1'
         new_file = request.files.get("image")
 
     if not content and not delete_image and not (new_file and new_file.filename):
@@ -652,6 +660,7 @@ def edit_comment(comment_id):
                 {"_id": oid},
                 {"$set": {"image_filename": image_filename}}
             )
+            image_url = f"/static/Uploads/{image_filename}"
 
         mongo.db.comments.update_one(
             {"_id": oid},
@@ -663,17 +672,22 @@ def edit_comment(comment_id):
             project_id=str(comment["project_id"]),
             card_id=None,
             user_id=str(current_user.get_id()),
-            nickname= current_user.nickname,
+            nickname=current_user.nickname,
             action="comment_update",
             details={
                 "old_content": comment["content"],
                 "new_content": content,
-                "project_name": project["name"]
+                "project_name": project["name"],
+                "image_updated": bool(new_file and new_file.filename),
+                "image_deleted": delete_image
             }
         )
 
-        logger.info(f"Successfully updated comment: {comment_id}")
-        return jsonify({"message": "댓글이 수정되었습니다."}), 200
+        logger.info(f"Successfully updated comment: {comment_id}, image_url={image_url}, delete_image={delete_image}")
+        return jsonify({
+            "message": "댓글이 수정되었습니다.",
+            "image_url": image_url
+        }), 200
     except Exception as e:
         logger.error(f"Error updating comment {comment_id}: {str(e)}")
         return jsonify({"message": "댓글 수정 중 오류가 발생했습니다."}), 500
@@ -741,10 +755,6 @@ def update_deadline(project_id):
     if not project:
         logger.error(f"Project not found or user has no access: {project_id}")
         return jsonify({"message": "프로젝트를 찾을 수 없거나 권한이 없습니다."}), 404
-
-    if str(project.get('owner')) != current_user.get_id():
-        logger.error(f"User {current_user.get_id()} not owner of project: {project_id}")
-        return jsonify({"message": "프로젝트 소유자만 마감일을 수정할 수 있습니다."}), 403
 
     data = request.get_json()
     new_deadline = data.get('deadline')

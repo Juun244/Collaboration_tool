@@ -80,7 +80,8 @@ function initializeCards() {
   // WebSocket 이벤트 리스너
   socket.on('card_created', (data) => {
     console.log("card_created 이벤트 수신:", data); // 디버깅 로그
-    appendCardToDOM(data.card, false); // 메인 대시보드에 카드 추가
+    container = document.querySelector(`.project-card-wrapper[data-project-id="${data.card.project_id}"] .card-container`);
+    const cardElement = createCardElement(data.card, false); // 드래그 가능
   });
 
   socket.on('card_updated', (data) => {

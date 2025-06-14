@@ -113,3 +113,243 @@ h2 {
   border: 1px solid #ffc107;
 }
 
+/* 카드(폼 영역) - 다크모드 */
+body.dark-mode .container,
+body.dark-mode .card {
+  background: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  border: none;
+}
+
+/* 인풋/텍스트에어리어/셀렉트 */
+body.dark-mode .form-control,
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background: #232323 !important;
+  color: var(--text-color) !important;
+  border: 1px solid #444 !important;
+}
+
+body.dark-mode .form-control:focus,
+body.dark-mode input:focus,
+body.dark-mode textarea:focus,
+body.dark-mode select:focus {
+  background: #292929 !important;
+  color: var(--text-color) !important;
+  border-color: #555 !important;
+  box-shadow: 0 0 0 0.15rem #4442;
+}
+
+/* 알림(Alert) */
+body.dark-mode .alert {
+  background-color: var(--alert-bg) !important;
+  color: var(--text-color) !important;
+  border: none;
+}
+
+/* 버튼 - 프라이머리/서세스 */
+body.dark-mode .btn-primary {
+  background-color: var(--btn-primary) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+body.dark-mode .btn-success {
+  background-color: var(--btn-success) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+/* 버튼 - 아웃라인 데인저 */
+body.dark-mode .btn-outline-danger {
+  background: transparent !important;
+  color: #ff8181 !important;
+  border: 1px solid #ff8181 !important;
+}
+
+/* 다크모드용 일반 텍스트 */
+body.dark-mode .form-text,
+body.dark-mode .invalid-feedback,
+body.dark-mode label,
+body.dark-mode h3,
+body.dark-mode h2 {
+  color: var(--text-color) !important;
+}
+
+/* 다크모드용 경고/위험 버튼 */
+body.dark-mode .btn-filled-danger {
+  background-color: #bc2635 !important;
+  color: #fff !important;
+  border: 1px solid #bc2635 !important;
+}
+body.dark-mode .btn-filled-danger:hover {
+  background-color: transparent !important;
+  color: #bc2635 !important;
+  border: 1px solid #bc2635 !important;
+}
+
+/* 다크모드용 경고 버튼 */
+body.dark-mode .btn-filled-warning {
+  background-color: #b1a000 !important;
+  color: #fff !important;
+  border: 1px solid #b1a000 !important;
+}
+body.dark-mode .btn-filled-warning:hover {
+  background-color: transparent !important;
+  color: #ffd966 !important;
+  border: 1px solid #ffd966 !important;
+}
+
+body.dark-mode #floatingChat {
+  background: #232323 !important;
+  color: #eee !important;
+  border: 1px solid #333;
+}
+
+body.dark-mode #chatHeader {
+  background: #222 !important;
+  color: #ffd966 !important;  /* 네가 지정한 링크 컬러 */
+}
+
+body.dark-mode #chatBody {
+  background: #232323 !important;
+  color: #eee !important;
+}
+
+body.dark-mode #chatInputArea {
+  background: #222 !important;
+}
+
+body.dark-mode #chatInput {
+  background: #2c2c2c !important;
+  color: #eee !important;
+  border: 1px solid #444 !important;
+}
+
+body.dark-mode #sendChatBtn {
+  background: var(--btn-primary) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+/* ---- 다크모드 변수 ---- */
+body.dark-mode {
+  --bg-color: #1e1e1e;
+  --text-color: #eaeaea;
+  --card-bg: #2c2c2c;
+  --alert-bg: #333;
+  --btn-primary: #4c8aff;
+  --btn-success: #3ddc97;
+  --link-color: #ffd966;
+}
+
+/* ---- 기본 배경/글자 ---- */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
+}
+
+/* ---- 컨테이너/카드 ---- */
+body.dark-mode .container,
+body.dark-mode .card {
+  background: var(--card-bg) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+body.dark-mode .card-body,
+body.dark-mode .truncate-description {
+  background: transparent !important;
+  color: var(--text-color) !important;
+}
+
+/* ---- 사이드바 ---- */
+body.dark-mode #sidebarMenu {
+  background: #232323 !important;
+  color: var(--text-color) !important;
+  border-right: 1px solid #333 !important;
+}
+body.dark-mode #sidebarMenu .list-group-item {
+  background: transparent !important;
+  color: var(--text-color) !important;
+  border: none !important;
+}
+body.dark-mode #sidebarMenu .list-group-item a {
+  color: var(--text-color) !important;
+}
+body.dark-mode #sidebarMenu .list-group-item.active {
+  background: #2c2c2c !important;
+}
+
+/* ---- 채팅 ---- */
+body.dark-mode #floatingChat {
+  background: #232323 !important;
+  color: #eee !important;
+  border: 1px solid #333 !important;
+}
+body.dark-mode #chatHeader {
+  background: #222 !important;
+  color: var(--link-color) !important;
+}
+body.dark-mode #chatBody,
+body.dark-mode #chatInputArea {
+  background: #232323 !important;
+  color: #eee !important;
+}
+body.dark-mode #chatInput {
+  background: #2c2c2c !important;
+  color: #eee !important;
+  border: 1px solid #444 !important;
+}
+body.dark-mode #sendChatBtn {
+  /* 별도 커스텀 필요시만, 아니면 아래 btn-primary 규칙을 씀 */
+}
+
+/* ---- 폼 입력 ---- */
+body.dark-mode .form-control,
+body.dark-mode input,
+body.dark-mode textarea,
+body.dark-mode select {
+  background: #232323 !important;
+  color: var(--text-color) !important;
+  border: 1px solid #444 !important;
+}
+body.dark-mode .form-control:focus {
+  background: #292929 !important;
+  color: var(--text-color) !important;
+  border-color: #555 !important;
+  box-shadow: 0 0 0 0.15rem #4442;
+}
+
+/* ---- 알림/alert ---- */
+body.dark-mode .alert {
+  background-color: var(--alert-bg) !important;
+  color: var(--text-color) !important;
+  border: none !important;
+}
+
+/* ---- 텍스트 기본 ---- */
+body.dark-mode,
+body.dark-mode label,
+body.dark-mode h2,
+body.dark-mode h3,
+body.dark-mode .form-label {
+  color: var(--text-color) !important;
+}
+
+/* ---- 네비바 ---- */
+body.dark-mode .navbar,
+body.dark-mode .navbar.navbar-dark {
+  background: #222 !important;
+  color: var(--text-color) !important;
+}
+body.dark-mode .navbar .navbar-brand {
+  color: var(--link-color) !important;
+}
+
+/* ---- 버튼/뱃지(건들지 말기!) ---- */
+/* .btn, .badge 관련 다크모드 스타일은 X, 기존 부트스트랩 스타일 그대로 */
+
