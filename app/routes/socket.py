@@ -542,8 +542,35 @@ def register_socket_events(socketio):
         changes = {}
         if card['title'] != update_data['title']:
             changes['title'] = {'from': card['title'], 'to': update_data['title']}
+            log_history(
+                mongo=mongo,
+                project_id=project_id,
+                card_id=card_id,
+                user_id=user_id,
+                nickname=current_user.nickname,
+                action='card_title_update',
+                details={
+                    'from_title': card['title'],
+                    'to_title': update_data['title'],
+                }
+            )
+
         if card['description'] != update_data['description']:
             changes['description'] = {'from': card['description'], 'to': update_data['description']}
+            log_history(
+                mongo=mongo,
+                project_id=project_id,
+                card_id=card_id,
+                user_id=user_id,
+                nickname=current_user.nickname,
+                action='card_description_update',
+                details={
+                    'from_description': card['description'],
+                    'to_description': update_data['description'],
+                    'title': update_data['title']
+                }
+            )
+
         if card['status'] != update_data['status']:
             changes['status'] = {'from': card['status'], 'to': update_data['status']}
             log_history(
@@ -551,7 +578,7 @@ def register_socket_events(socketio):
                 project_id=project_id,
                 card_id=card_id,
                 user_id=user_id,
-                nickname= current_user.nickname,
+                nickname=current_user.nickname,
                 action='card_status_update',
                 details={
                     'from_status': card['status'],
@@ -561,15 +588,15 @@ def register_socket_events(socketio):
             )
 
         if changes:
-            log_history(
-                mongo=mongo,
-                project_id=project_id,
-                card_id=card_id,
-                user_id=user_id,
-                nickname= current_user.nickname,
-                action='card_update',
-                details=changes
-            )
+            # log_history(
+            #     mongo=mongo,
+            #     project_id=project_id,
+            #     card_id=card_id,
+            #     user_id=user_id,
+            #     nickname= current_user.nickname,
+            #     action='card_update',
+            #     details=changes
+            # )
 
             # 프로젝트 멤버들에게 알림 전송
             for member in project.get('members', []):
