@@ -39,28 +39,26 @@
 
     <!-- Main Content -->
     <div class="main-content">
-        <nav class="navbar navbar-dark bg-dark position-relative" style="min-height: 56px;">
-            <div class="container-fluid position-relative px-0">
+    <nav class="navbar navbar-dark bg-dark position-relative" style="min-height: 56px;">
+        <div class="container-fluid position-relative">
+        <!-- 왼쪽 메뉴버튼 -->
+        <div class="position-absolute start-0 top-50 translate-middle-y ms-2" style="z-index: 2;">
+            <button class="btn btn-outline-light" id="menuToggle">
+            <i class="bi bi-list"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger sidebar-notification-badge" style="display: none;"></span>
+            </button>
+        </div>
 
-                <!-- 왼쪽 메뉴버튼 -->
-                <div class="position-absolute start-0 top-50 translate-middle-y ms-2" style="z-index: 2;">
-                <button class="btn btn-outline-light" id="menuToggle">
-                    <i class="bi bi-list"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger sidebar-notification-badge" style="display: none;"></span>
-                </button>
-                </div>
+        <!-- 가운데 로고 -->
+        <a class="navbar-brand navbar-brand-center" href="#">Scramble</a>
 
-                <!-- 가운데 로고 -->
-                <a class="navbar-brand navbar-brand-center" href="#">Scramble</a>
-
-                <!-- 오른쪽 사용자 정보 -->
-                <div class="position-absolute end-0 top-50 translate-middle-y me-2 text-light small d-flex flex-column align-items-end" style="z-index: 2;">
-                <span>Welcome, {{ user.nickname }}</span>
-                <a href="{{ url_for('auth.logout') }}" class="text-light text-decoration-none">Logout</a>
-                </div>
-
-            </div>
-            </nav>
+        <!-- 오른쪽 사용자 정보 -->
+        <div class="position-absolute end-0 top-50 translate-middle-y me-2 text-light small d-flex flex-column align-items-end" style="z-index: 2;">
+            <span>Welcome, {{ user.nickname }}</span>
+            <a href="{{ url_for('auth.logout') }}" class="text-light text-decoration-none">Logout</a>
+        </div>
+        </div>
+    </nav>
 
         <!-- My Projects Section -->
         <div class="container-fluid mt-4">
