@@ -39,17 +39,26 @@
 
     <!-- Main Content -->
     <div class="main-content">
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container-fluid position-relative">
-                <button class="btn btn-outline-light position-fixed top-0 start-0 m-2" id="menuToggle" style="z-index: 1100;">
-                    <i class="bi bi-list"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger sidebar-notification-badge" style="display: none;"></span>
+        <nav class="navbar navbar-dark bg-dark position-relative" style="min-height: 56px;">
+            <div class="container-fluid px-2">
+
+                <!-- 왼쪽: 메뉴 토글 버튼 -->
+                <button class="btn btn-outline-light" id="menuToggle" style="z-index: 1100;">
+                <i class="bi bi-list"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger sidebar-notification-badge" style="display: none;"></span>
                 </button>
-                <a class="navbar-brand navbar-brand-center" href="#">Scramble</a>
-                <div class="navbar-nav ms-auto">
-                    <span class="nav-item nav-link text-light">Welcome, {{ user.nickname }}</span>
-                    <a class="nav-item nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+
+                <!-- 가운데: 로고 (절대 중앙 정렬) -->
+                <a class="navbar-brand position-absolute start-50 translate-middle-x m-0" href="#" style="z-index: 1;">
+                Scramble
+                </a>
+
+                <!-- 오른쪽: 사용자 정보 -->
+                <div class="d-flex flex-column align-items-end text-light small ms-auto">
+                <span>Welcome, {{ user.nickname }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="text-light text-decoration-none">Logout</a>
                 </div>
+
             </div>
         </nav>
 
