@@ -128,10 +128,11 @@ async function loadHistory(projectId) {
               ? `카드 순서 변경: ${entry.details.title} (새 순서: ${entry.details.new_order || '알 수 없음'})`
               : `알 수 없는 순서 변경`;
             break;
-          case "card_update":
-            detailText = entry.details.description
-              ? `카드 설명 수정: ${entry.details.description.from || '없음'} -> ${entry.details.description.to || '없음'}`
-              : `알 수 없는 카드 수정`;
+          case "card_title_update":
+            detailText = `카드 제목 수정: ${entry.details.from_title || '없음'} -> ${entry.details.to_title || '없음'}`;
+            break;
+          case "card_description_update":
+            detailText = `카드 설명 수정 (${entry.details.title || '알 수 없는 카드'})`;
             break;
           default:
             detailText = `알 수 없는 작업: ${JSON.stringify(entry.details)}`;
