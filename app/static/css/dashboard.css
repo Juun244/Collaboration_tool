@@ -99,9 +99,6 @@ body {
       transform: translateX(0);
       pointer-events: auto;
     }
-    .navbar-brand {
-      margin-left: 3rem !important;
-    }
     .project-scroll-container {
       padding-left: 0;
       margin-left: 0;
@@ -617,16 +614,6 @@ body {
   width: auto;
 }
 
-.navbar-brand-center {
-  position: absolute;
-  color: #ffc107;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-weight: bold;
-  font-size: 1.5rem;
-}
 
 /* 프로젝트 초대 알림 특별 스타일 */
 .invitation-item {
@@ -835,30 +822,61 @@ body.dark-mode .modal-content * {
   border-color: #444 !important;
 }
 
+/* 네비게이션 바 기본 스타일 */
+.navbar {
+  min-height: 56px;
+  padding: 0;
+  position: relative;
+}
+
+.navbar .container-fluid {
+  padding: 0 1rem; /* 최소 패딩으로 간섭 줄임 */
+  position: relative;
+}
+
+.navbar-brand-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.5rem;
+  color: #ffc107;
+  z-index: 3; /* 메뉴 버튼, 사용자 정보 위에 표시 */
+  text-align: center;
+  width: auto; /* 너비 자동 조정 */
+  max-width: 60%; /* 로고가 화면을 벗어나지 않도록 제한 */
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 메뉴 버튼과 사용자 정보 위치 조정 */
+.position-absolute.start-0.top-50.translate-middle-y {
+  left: 0.5rem !important;
+  z-index: 2;
+}
+
+.position-absolute.end-0.top-50.translate-middle-y {
+  right: 0.5rem !important;
+  z-index: 2;
+}
+
 /* 모바일 (가로 폭 576px 이하) */
 @media (max-width: 576px) {
   .navbar-brand-center {
-    font-size: 1.2rem; /* 모바일에서 폰트 크기 축소 */
-    max-width: 150px; /* 모바일에서 로고 크기 제한 */
+    font-size: 1.2rem;
+    max-width: 50%; /* 모바일에서 더 컴팩트 */
   }
 
   .main-content .d-flex.flex-column.align-items-end {
-    font-size: 0.75rem; /* 사용자 정보 폰트 크기 더 축소 */
+    font-size: 0.75rem;
     text-align: right;
-    margin-right: 0.5rem; /* 여백 조정 */
-  }
-
-  /* 메뉴 버튼과 사용자 정보의 간섭 방지 */
-  .position-absolute.start-0.top-50.translate-middle-y {
-    left: 0.5rem !important; /* 메뉴 버튼 왼쪽 여백 */
-  }
-
-  .position-absolute.end-0.top-50.translate-middle-y {
-    right: 0.5rem !important; /* 사용자 정보 오른쪽 여백 */
+    margin-right: 0.5rem;
   }
 
   .navbar .container-fluid {
-    padding: 0 2.5rem; /* 좌우 패딩 증가로 중앙 로고 공간 확보 */
+    padding: 0 1.5rem; /* 모바일에서 패딩 조정 */
   }
 }
 
@@ -866,10 +884,31 @@ body.dark-mode .modal-content * {
 @media (max-width: 320px) {
   .navbar-brand-center {
     font-size: 1rem;
-    max-width: 120px;
+    max-width: 40%;
   }
 
   .main-content .d-flex.flex-column.align-items-end {
     font-size: 0.65rem;
+    margin-right: 0.25rem;
   }
+
+  .navbar .container-fluid {
+    padding: 0 1rem;
+  }
+}
+
+/* 터치 반응성 개선 */
+.navbar-brand-center,
+.add-card-btn,
+.project-card,
+.invite-member,
+.edit-project-btn,
+.open-chat-btn {
+  touch-action: manipulation; /* 터치 지연 감소 */
+  -webkit-tap-highlight-color: transparent; /* 터치 하이라이트 제거 */
+}
+
+.project-card, .add-card-btn, .invite-member, .open-chat-btn, .edit-project-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
