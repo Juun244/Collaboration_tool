@@ -838,14 +838,38 @@ body.dark-mode .modal-content * {
 /* 모바일 (가로 폭 576px 이하) */
 @media (max-width: 576px) {
   .navbar-brand-center {
-    font-size: 1.2rem;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    font-size: 1.2rem; /* 모바일에서 폰트 크기 축소 */
+    max-width: 150px; /* 모바일에서 로고 크기 제한 */
+  }
+
+  .main-content .d-flex.flex-column.align-items-end {
+    font-size: 0.75rem; /* 사용자 정보 폰트 크기 더 축소 */
+    text-align: right;
+    margin-right: 0.5rem; /* 여백 조정 */
+  }
+
+  /* 메뉴 버튼과 사용자 정보의 간섭 방지 */
+  .position-absolute.start-0.top-50.translate-middle-y {
+    left: 0.5rem !important; /* 메뉴 버튼 왼쪽 여백 */
+  }
+
+  .position-absolute.end-0.top-50.translate-middle-y {
+    right: 0.5rem !important; /* 사용자 정보 오른쪽 여백 */
+  }
+
+  .navbar .container-fluid {
+    padding: 0 2.5rem; /* 좌우 패딩 증가로 중앙 로고 공간 확보 */
   }
 }
-@media (max-width: 576px) {
+
+/* 초소형 화면 (가로 폭 320px 이하) */
+@media (max-width: 320px) {
+  .navbar-brand-center {
+    font-size: 1rem;
+    max-width: 120px;
+  }
+
   .main-content .d-flex.flex-column.align-items-end {
-    font-size: 0.8rem;
-    text-align: right;
+    font-size: 0.65rem;
   }
 }
