@@ -8,7 +8,6 @@ let startY = 0;
 let scrollAnimationFrame = null; // 프로젝트 드래그 스크롤 애니메이션
 
 let draggedCard = null;
-// let placeholder = null; // 플레이스홀더는 이제 draggedCard 자신이 역할을 함
 let cardDragTimer = null;
 let isCardDragging = false; // 작업 카드 드래그 플래그 (task-card)
 let cardDragClone = null;
@@ -20,6 +19,10 @@ let cardStartY = 0;
 let currentClientX = 0;
 let currentClientY = 0;
 
+// --- 추가된 스크롤 관련 변수 ---
+let isSwiping = false; // 스와이프 중인지 여부 (일반 스크롤)
+let lastClientX = 0; // 스와이프 스크롤을 위한 마지막 터치 X 좌표
+
 function initializeDragAndDrop() {
     const projectScrollContainer = document.querySelector(".project-scroll-container");
     
@@ -30,7 +33,7 @@ function initializeDragAndDrop() {
 
     // --- 휠 스크롤 로직 ---
     projectScrollContainer.addEventListener("wheel", e => {
-        if (!isDragging && !isCardDragging) {
+        if (!isDragging && !isCardDragging) { // 드래그 중이 아닐 때만 휠 스크롤 허용
             e.preventDefault();
             projectScrollContainer.scrollLeft += e.deltaY * 0.5;
         }
@@ -41,6 +44,7 @@ function initializeDragAndDrop() {
     projectScrollContainer.addEventListener('mousedown', e => {
         const cardWrapper = e.target.closest('.project-card-wrapper');
         // task-card 내부의 클릭은 프로젝트 드래그로 취급하지 않음
+        // isCardDragging은 task-card 드래그 중인지 판단
         if (!cardWrapper || e.target.closest('.task-card') || isCardDragging) return; 
 
         e.preventDefault(); // 드래그 대기 시간 동안 브라우저 기본 동작 방지
@@ -55,7 +59,7 @@ function initializeDragAndDrop() {
     });
 
     projectScrollContainer.addEventListener('mousemove', e => {
-        if (isDragging && dragged) {
+        if (isDragging && dragged) { // 프로젝트 카드 드래그 중
             e.preventDefault();
             handleProjectDrag(e.clientX, e.clientY);
         } else if (dragTimer) { // 드래그 타이머가 설정된 상태에서 움직임이 감지되면 타이머 취소
@@ -79,49 +83,76 @@ function initializeDragAndDrop() {
         clearTimeout(dragTimer);
     });
 
-    // 터치 이벤트
+    // 터치 이벤트 (수정)
     projectScrollContainer.addEventListener('touchstart', e => {
         const cardWrapper = e.target.closest('.project-card-wrapper');
-        if (!cardWrapper || e.target.closest('.task-card') || isCardDragging) return;
-
-        e.preventDefault(); 
-        e.stopPropagation();
+        // 작업 카드 내부 요소 클릭 또는 작업 카드 드래그 중에는 프로젝트 드래그 또는 스크롤 시작 안함
+        if (e.target.closest('.task-card') || isCardDragging) {
+            return; 
+        }
 
         const touch = e.touches[0];
-        startX = touch.clientX;
-        startY = touch.clientY;
+        startX = touch.clientX; // 프로젝트 드래그 시작 X 좌표 (드래그 판별용)
+        startY = touch.clientY; // 프로젝트 드래그 시작 Y 좌표 (드래그 판별용)
+        lastClientX = touch.clientX; // 일반 스와이프 스크롤을 위한 시작 X 좌표
 
+        // 드래그 타이머 설정
         dragTimer = setTimeout(() => {
-            startProjectDrag(cardWrapper, touch.clientX, touch.clientY);
-        }, 300);
+            // 스와이프 중이 아닐 때만 프로젝트 드래그 시작
+            if (!isSwiping) { 
+                startProjectDrag(cardWrapper, touch.clientX, touch.clientY);
+            }
+        }, 300); // 길게 누르기(드래그) 시작 지연 시간
+
+        // passive: false를 유지하여 e.preventDefault()를 조건부로 사용
+        e.stopPropagation(); // 이벤트 버블링 방지
     }, { passive: false });
 
     projectScrollContainer.addEventListener('touchmove', e => {
-        if (isDragging && dragged) {
-            e.preventDefault();
+        if (isDragging && dragged) { // 프로젝트 카드 드래그 중
+            e.preventDefault(); // 브라우저 기본 스크롤 동작 방지
             const touch = e.touches[0];
             handleProjectDrag(touch.clientX, touch.clientY);
-        } else if (dragTimer) {
+            wasDragging = true; // 드래그가 발생했음을 표시
+        } else if (dragTimer) { // 드래그 타이머 대기 중
             const touch = e.touches[0];
             const dx = Math.abs(touch.clientX - startX);
             const dy = Math.abs(touch.clientY - startY);
-            if (dx > 15 || dy > 15) { // 터치 임계값: 미세한 움직임에도 타이머 취소 (클릭으로 간주)
+
+            // 드래그 임계값을 넘으면 타이머 취소 (클릭이 아님)
+            // 그리고 움직임이 크면 일반 스와이프 스크롤로 간주
+            if (dx > 15 || dy > 15) { // 터치 임계값: 일정 거리 이상 움직이면 스크롤 또는 드래그 시작
                 clearTimeout(dragTimer);
                 dragTimer = null;
+                
+                // 수평 이동이 수직 이동보다 크면 스와이프로 간주하여 가로 스크롤 시작
+                if (dx > dy) {
+                    isSwiping = true; // 스와이프 시작
+                    e.preventDefault(); // 스와이프 스크롤 시 브라우저 기본 동작 방지
+                    projectScrollContainer.scrollLeft -= (touch.clientX - lastClientX);
+                    lastClientX = touch.clientX;
+                }
             }
+        } else if (isSwiping) { // 일반 스와이프 스크롤 중
+            e.preventDefault(); // 스와이프 스크롤 시 브라우저 기본 동작 방지
+            const touch = e.touches[0];
+            projectScrollContainer.scrollLeft -= (touch.clientX - lastClientX);
+            lastClientX = touch.clientX;
         }
     }, { passive: false });
 
     document.addEventListener('touchend', () => {
         clearTimeout(dragTimer);
-        if (isDragging) {
+        if (isDragging) { // 프로젝트 카드 드래그 종료
             endProjectDrag();
         }
+        isSwiping = false; // 스와이프 상태 초기화
+        setTimeout(() => { wasDragging = false; }, 100); // 클릭 이벤트와 분리 (드래그 종료 후 짧은 시간 동안 클릭 방지)
     });
 
     // Project Drag Functions 
     function startProjectDrag(card, x, y) {
-        if (isDragging) return;
+        if (isDragging || isSwiping) return; // 드래그 또는 스와이프 중이면 시작 안함
         isDragging = true;
         wasDragging = true; // 드래그가 발생했음을 표시
         dragged = card;
@@ -257,6 +288,7 @@ function initializeDragAndDrop() {
     // 터치 이벤트
     projectScrollContainer.addEventListener('touchstart', e => { 
         const taskCard = e.target.closest('.task-card');
+        // 프로젝트 드래그 중이거나 이미 카드 드래그 중이면 시작 안함
         if (!taskCard || isDragging || isCardDragging) return; 
 
         e.preventDefault(); 
@@ -368,10 +400,6 @@ function initializeDragAndDrop() {
         // 3. 원본 카드(플레이스홀더 역할)의 위치 업데이트 로직
         const target = document.elementFromPoint(currentClientX, currentClientY);
         let targetContainer = target?.closest('.card-container');
-
-        // 예외 처리: targetContainer가 없는 경우 (예: 드래그 중인 카드가 보드 밖으로 나갔을 때)
-        // 이 경우, 마지막 유효한 targetContainer를 유지하거나, 적절한 기본값으로 처리할 수 있습니다.
-        // 여기서는 유효한 targetContainer가 없을 경우 아무것도 하지 않습니다.
         
         // 모든 드롭 영역 하이라이트 제거
         document.querySelectorAll('.card-container').forEach(c => {
@@ -415,14 +443,6 @@ function initializeDragAndDrop() {
         cardAnimationFrameId = requestAnimationFrame(updateCardPositionAndScroll);
     }
 
-    // 기존 handleCardDragMove는 좌표 업데이트만 담당하도록 간소화
-    function handleCardDragMove(x, y) {
-        if (!isCardDragging) return; 
-        currentClientX = x;
-        currentClientY = y;
-        // updateCardPositionAndScroll은 requestAnimationFrame으로 이미 실행 중이므로 여기서 다시 호출하지 않음
-    }
-
     async function endCardDrag() {
         if (!isCardDragging || !draggedCard) return;
 
@@ -461,9 +481,6 @@ function initializeDragAndDrop() {
             }
         } else {
             console.warn('카드가 유효한 드롭 컨테이너에 드롭되지 않았습니다. 원본 카드를 원래 위치로 되돌리거나, 적절히 처리해야 합니다.');
-            // 이 시나리오에 대한 추가적인 복구 로직이 필요할 수 있습니다.
-            // 예를 들어, 드래그 시작 전의 부모와 인덱스를 저장해뒀다가 되돌리는 방식.
-            // 현재는 이미 draggedCard가 DOM에 삽입되어 있으므로 추가 조작은 불필요할 수 있습니다.
         }
 
         draggedCard = null; // 드래그된 카드 참조 해제
@@ -516,7 +533,6 @@ function initializeDragAndDrop() {
     }
 }
 
-// 소켓 이벤트 처리 및 도우미 함수 (기존과 동일)
 socket.on("card_moved", data => {
     const { source_project_id, target_project_id } = data;
     const currentProjectIds = getVisibleProjectIds();
