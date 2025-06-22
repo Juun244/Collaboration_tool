@@ -834,3 +834,18 @@ body.dark-mode .modal-content * {
   color: #fafafa !important;
   border-color: #444 !important;
 }
+
+/* 모바일 (가로 폭 576px 이하) */
+@media (max-width: 576px) {
+  .navbar-brand-center {
+    font-size: 1.2rem;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+@media (max-width: 576px) {
+  .main-content .d-flex.flex-column.align-items-end {
+    font-size: 0.8rem;
+    text-align: right;
+  }
+}
