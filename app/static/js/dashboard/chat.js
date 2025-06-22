@@ -1,109 +1,126 @@
 const chatInstances = new Map();
-// 채팅 버튼 클릭 이벤트(이벤트 위임 적용)
-document.addEventListener("click", e => {
-  const button = e.target.closest(".open-chat-btn");
-  if (!button) return;
+let isChatInitialized = false;
 
-  e.stopPropagation(); // 카드 클릭 이벤트 방지
-  const projectId = button.dataset.projectId;
-  const projectName = button.dataset.projectName;
-
-  if (!projectId) {
-    console.error("projectId not found on button:", button);
+window.initializeChat = function () {
+  if (isChatInitialized) {
+    console.log("채팅이 이미 초기화되어 있습니다.");
     return;
   }
 
-  console.log("Opening chat for project:", projectId);
+  console.log("initializeChat 호출됨");
+
+  // Modal 이벤트 리스너
+  document.addEventListener("DOMContentLoaded", () => {
+    const projectBoardModal = document.getElementById("projectBoardModal");
+    if (projectBoardModal) {
+      projectBoardModal.addEventListener("shown.bs.modal", () => {
+        chatInstances.forEach((instance, projectId) => {
+          const chatBox = instance.element;
+          chatBox.style.zIndex = "10000";
+          chatBox.classList.add("active");
+          const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
+          if (chatInput && document.activeElement.id !== `chatInput-${projectId}`) {
+            setTimeout(() => chatInput.focus(), 200);
+          }
+        });
+      });
+
+      projectBoardModal.addEventListener("hidden.bs.modal", () => {
+        chatInstances.forEach((instance, projectId) => {
+          const chatBox = instance.element;
+          if (!instance.isMinimized) {
+            chatBox.classList.add("active");
+            const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
+            if (chatInput) {
+              setTimeout(() => chatInput.focus(), 100);
+            }
+          }
+        });
+      });
+
+      projectBoardModal.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const commentInput = projectBoardModal.querySelector(".comment-input");
+        if (commentInput && e.target.closest(".comment-section")) {
+          setTimeout(() => commentInput.focus(), 100);
+        }
+      });
+
+      projectBoardModal.addEventListener("keydown", (e) => {
+        if (document.activeElement.classList.contains("comment-input")) {
+          e.stopPropagation();
+        } else if (document.activeElement.id.startsWith("chatInput-")) {
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+      });
+    }
+
+    const modalBackdrop = document.querySelector(".modal-backdrop");
+    if (modalBackdrop) {
+      modalBackdrop.addEventListener("click", (e) => {
+        e.stopPropagation();
+      });
+    }
+  });
+
+  // Socket 이벤트 설정
+  socket.on("chat_history", (history) => {
+    history.forEach(data => {
+      if (data.project_id) {
+        appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
+      }
+    });
+  });
+
+  socket.on("message", (data) => {
+    if (data.project_id) {
+      appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
+    }
+  });
+
+  socket.on("notice", (data) => {
+    if (data.project_id) {
+      appendSystemMessage(data.project_id, data.msg || data.message);
+    }
+  });
+
+  socket.on("error", (err) => {
+    alert(`메시지 전송 실패: ${err.msg}`);
+  });
+
+  isChatInitialized = true;
+  console.log("채팅 초기화 완료");
+};
+
+// openChat 커스텀 이벤트 리스너 등록
+document.addEventListener("openChat", (e) => {
+  const { projectId, projectName } = e.detail;
+  console.log("CustomEvent openChat 수신:", projectId, projectName);
   openChat(projectId, projectName);
 });
 
-// DOMContentLoaded 이벤트에서 버튼 및 모달 이벤트 설정
-document.addEventListener("DOMContentLoaded", () => {
-
-  // 모달 이벤트 감지
-  const projectBoardModal = document.getElementById("projectBoardModal");
-  if (projectBoardModal) {
-    projectBoardModal.addEventListener("shown.bs.modal", () => {
-      console.log("Modal shown, ensuring chat visibility");
-      chatInstances.forEach((instance, projectId) => {
-        const chatBox = instance.element;
-        chatBox.style.zIndex = "10000";
-        chatBox.classList.add("active");
-        const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
-        if (chatInput && document.activeElement.id !== `chatInput-${projectId}`) {
-          setTimeout(() => {
-            chatInput.focus();
-            console.log(`Forced focus on chat input for ${projectId} after modal shown`);
-          }, 200);
-        }
-        console.log(`Chat ${projectId} z-index set to 10000, classes: ${chatBox.className}`);
-      });
-    });
-    projectBoardModal.addEventListener("hidden.bs.modal", () => {
-      console.log("Modal hidden, restoring chat state");
-      chatInstances.forEach((instance, projectId) => {
-        const chatBox = instance.element;
-        if (!instance.isMinimized) {
-          chatBox.classList.add("active");
-          const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
-          if (chatInput) {
-            setTimeout(() => {
-              chatInput.focus();
-              console.log(`Forced focus on chat input for ${projectId} after modal hidden`);
-            }, 100);
-          }
-        }
-      });
-    });
-    // 모달 클릭 시 댓글 입력 활성화
-    projectBoardModal.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const commentInput = projectBoardModal.querySelector(".comment-input");
-      if (commentInput && e.target.closest(".comment-section")) {
-        setTimeout(() => {
-          commentInput.focus();
-          console.log("Focused comment input in modal");
-        }, 100);
-      }
-    });
-    // 모달 키보드 이벤트 관리
-    projectBoardModal.addEventListener("keydown", (e) => {
-      if (document.activeElement.classList.contains("comment-input")) {
-        console.log("Modal keydown for comment input, key:", e.key);
-        e.stopPropagation();
-      } else if (document.activeElement.id.startsWith("chatInput-")) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log("Modal keydown blocked for chat input, key:", e.key);
-      } else {
-        console.log("Modal keydown captured, no input focused, key:", e.key);
-      }
-    });
-  } else {
-    console.warn("projectBoardModal not found");
-  }
-
-  // 모달 배경 클릭 방지
-  const modalBackdrop = document.querySelector(".modal-backdrop");
-  if (modalBackdrop) {
-    modalBackdrop.addEventListener("click", (e) => {
-      e.stopPropagation();
-      console.log("Modal backdrop clicked, preventing focus loss");
-    });
-  }
-});
-
-// 드래그 앤 드롭 기능
 function makeDraggable(element, header) {
   let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-  header.onmousedown = dragMouseDown;
+
+  header.addEventListener("mousedown", dragMouseDown);
+  header.addEventListener("touchstart", dragTouchStart, { passive: false });
 
   function dragMouseDown(e) {
     e.preventDefault();
     pos3 = e.clientX;
     pos4 = e.clientY;
-    document.onmouseup = closeDragElement;
-    document.onmousemove = elementDrag;
+    document.addEventListener("mouseup", closeDragElement);
+    document.addEventListener("mousemove", elementDrag);
+  }
+
+  function dragTouchStart(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    pos3 = touch.clientX;
+    pos4 = touch.clientY;
+    document.addEventListener("touchend", closeDragElement, { passive: false });
+    document.addEventListener("touchmove", elementDragTouch, { passive: false });
   }
 
   function elementDrag(e) {
@@ -118,32 +135,41 @@ function makeDraggable(element, header) {
     element.style.bottom = "auto";
   }
 
+  function elementDragTouch(e) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    pos1 = pos3 - touch.clientX;
+    pos2 = pos4 - touch.clientY;
+    pos3 = touch.clientX;
+    pos4 = touch.clientY;
+    element.style.top = (element.offsetTop - pos2) + "px";
+    element.style.left = (element.offsetLeft - pos1) + "px";
+    element.style.right = "auto";
+    element.style.bottom = "auto";
+  }
+
   function closeDragElement() {
-    document.onmouseup = null;
-    document.onmousemove = null;
+    document.removeEventListener("mouseup", closeDragElement);
+    document.removeEventListener("mousemove", elementDrag);
+    document.removeEventListener("touchend", closeDragElement);
+    document.removeEventListener("touchmove", elementDragTouch);
   }
 }
 
-// 채팅창 열기
-function openChat(projectId,projectName) {
+function openChat(projectId, projectName) {
   if (chatInstances.has(projectId)) {
     const chatBox = chatInstances.get(projectId).element;
     chatBox.classList.add("active");
     chatBox.classList.remove("minimized");
-    chatInstances.get(projectId).isMinimized = false;
-    chatBox.querySelector(`.chat-body`).style.display = "flex";
+    chatBox.querySelector(".chat-body").style.display = "flex";
     chatBox.querySelector(`#minimizeChat-${projectId}`).textContent = "🗕";
     chatBox.style.zIndex = "10000";
     const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
     if (chatInput) {
       chatInput.disabled = false;
       chatInput.readOnly = false;
-      setTimeout(() => {
-        chatInput.focus();
-        console.log(`Forced focus on chat input for ${projectId} (restore), activeElement: ${document.activeElement.id}`);
-      }, 100);
+      setTimeout(() => chatInput.focus(), 100);
     }
-    console.log(`Restored chat for project: ${projectId}, classes: ${chatBox.className}, visible: ${chatBox.style.display}`);
     return;
   }
 
@@ -167,7 +193,6 @@ function openChat(projectId,projectName) {
     </div>
   `;
   document.body.appendChild(chatBox);
-  console.log(`Created chat for project: ${projectId}, appended to body`);
 
   const offset = chatInstances.size * 320;
   chatBox.style.right = `${20 + offset}px`;
@@ -176,107 +201,88 @@ function openChat(projectId,projectName) {
 
   chatInstances.set(projectId, { element: chatBox, isMinimized: false });
 
-  makeDraggable(chatBox, chatBox.querySelector(`.chat-header`));
+  makeDraggable(chatBox, chatBox.querySelector(".chat-header"));
 
-  // 최소화/최대화 이벤트
-  chatBox.querySelector(`#minimizeChat-${projectId}`).addEventListener("click", (e) => {
+  // 최소화 버튼 이벤트 (클릭 + 터치)
+  const minimizeBtn = chatBox.querySelector(`#minimizeChat-${projectId}`);
+  minimizeBtn.addEventListener("click", (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    const instance = chatInstances.get(projectId);
-    instance.isMinimized = !instance.isMinimized;
-    const chatBody = chatBox.querySelector(`.chat-body`);
-    chatBody.style.display = instance.isMinimized ? "none" : "flex";
-    chatBox.classList.toggle("minimized", instance.isMinimized);
-    chatBox.querySelector(`#minimizeChat-${projectId}`).textContent = instance.isMinimized ? "🗖" : "🗕";
-    if (instance.isMinimized) {
-      chatBox.querySelector(`.chat-header`).classList.remove("new-message");
-    }
-    console.log(`Minimized state for ${projectId}: ${instance.isMinimized}`);
+    toggleMinimize(projectId);
   });
-
-  // 닫기 이벤트
-  chatBox.querySelector(`#chatClose-${projectId}`).addEventListener("click", (e) => {
+  minimizeBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    socket.emit("leave", { project_id: projectId });
-    chatBox.remove();
-    chatInstances.delete(projectId);
-    console.log(`Closed chat for project: ${projectId}`);
-  });
+    toggleMinimize(projectId);
+  }, { passive: false });
 
-  // 메시지 전송 이벤트
+  // 닫기 버튼 이벤트 (클릭 + 터치)
+  const closeBtn = chatBox.querySelector(`#chatClose-${projectId}`);
+  closeBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeChat(projectId, chatBox);
+  });
+  closeBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    closeChat(projectId, chatBox);
+  }, { passive: false });
+
   const chatInput = chatBox.querySelector(`#chatInput-${projectId}`);
   const sendBtn = chatBox.querySelector(`#sendChatBtn-${projectId}`);
-  sendBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const message = chatInput.value.trim();
-    console.log(`Send button clicked for ${projectId}, message: ${message}`);
-    if (!message) return;
-    socket.emit("send_message", { project_id: projectId, message }, (response) => {
-      console.log(`Server response for send_message ${projectId}:`, response);
-    });
-    chatInput.value = "";
-    chatInput.focus();
-  });
 
-  // 키보드 입력 이벤트
-  chatInput.addEventListener("keydown", (e) => {
+  sendBtn.addEventListener("click", () => {
+    sendMessage(projectId, chatInput);
+  });
+  sendBtn.addEventListener("touchend", (e) => {
+    e.preventDefault();
     e.stopPropagation();
-    e.stopImmediatePropagation();
-    console.log(`Keydown event in chat input for ${projectId}, key: ${e.key}, value: ${chatInput.value}`);
+    sendMessage(projectId, chatInput);
+  }, { passive: false });
+
+  chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      const message = chatInput.value.trim();
-      console.log(`Enter key pressed for ${projectId}, message: ${message}`);
-      if (!message) return;
-      socket.emit("send_message", { project_id: projectId, message }, (response) => {
-        console.log(`Server response for send_message ${projectId}:`, response);
-      });
-      chatInput.value = "";
-      chatInput.focus();
+      sendMessage(projectId, chatInput);
     }
   });
 
-  // 입력 필드 디버깅
-  chatInput.addEventListener("focus", () => {
-    console.log(`Chat input focused for ${projectId}, activeElement: ${document.activeElement.id}`);
-  });
-  chatInput.addEventListener("blur", () => {
-    console.log(`Chat input lost focus for ${projectId}, activeElement: ${document.activeElement.id}`);
-  });
-  chatInput.addEventListener("click", (e) => {
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    chatInput.disabled = false;
-    chatInput.readOnly = false;
-    setTimeout(() => {
-      chatInput.focus();
-      console.log(`Chat input clicked for ${projectId}, activeElement: ${document.activeElement.id}`);
-    }, 100);
-  });
-  chatInput.addEventListener("input", (e) => {
-    console.log(`Input event in chat input for ${projectId}, value: ${e.target.value}`);
-  });
-  chatInput.addEventListener("keypress", (e) => {
-    console.log(`Keypress event in chat input for ${projectId}, key: ${e.key}, value: ${chatInput.value}`);
-  });
-
-  console.log("Joining room for project:", projectId);
-  socket.emit("join", projectId , (response) => {
-    console.log(`Server response for join ${projectId}:`, response);
-  });
+  socket.emit("join", projectId);
 }
 
-// 메시지 출력
+function toggleMinimize(projectId) {
+  const instance = chatInstances.get(projectId);
+  if (!instance) return;
+  const chatBox = instance.element;
+  instance.isMinimized = !instance.isMinimized;
+  const chatBody = chatBox.querySelector(".chat-body");
+  chatBody.style.display = instance.isMinimized ? "none" : "flex";
+  chatBox.classList.toggle("minimized", instance.isMinimized);
+  const minimizeBtn = chatBox.querySelector(`#minimizeChat-${projectId}`);
+  minimizeBtn.textContent = instance.isMinimized ? "🗖" : "🗕";
+}
+
+function closeChat(projectId, chatBox) {
+  socket.emit("leave", { project_id: projectId });
+  chatBox.remove();
+  chatInstances.delete(projectId);
+}
+
+function sendMessage(projectId, chatInput) {
+  const message = chatInput.value.trim();
+  if (!message) return;
+  socket.emit("send_message", { project_id: projectId, message });
+  chatInput.value = "";
+  chatInput.focus();
+}
+
 function appendChatMessage(projectId, nickname, message, timestamp) {
-  console.log("Appending message to project:", projectId, message);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
-  if (!chatMessages) {
-    console.error(`chatMessages-${projectId} not found`);
-    return;
-  }
+  if (!chatMessages) return;
   const div = document.createElement("div");
   const color = (nickname === window.currentUserNickname) ? "green" : "black";
-div.innerHTML = `<strong style="color:${color}">${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
+  div.innerHTML = `<strong style="color:${color}">${nickname}</strong>: ${message} <small class="text-muted">(${timestamp})</small>`;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -287,52 +293,12 @@ div.innerHTML = `<strong style="color:${color}">${nickname}</strong>: ${message}
   }
 }
 
-// 시스템 메시지 출력
 function appendSystemMessage(projectId, msg) {
-  console.log("Appending system message to project:", projectId, msg);
   const chatMessages = document.getElementById(`chatMessages-${projectId}`);
-  if (!chatMessages) {
-    //console.error(`chatMessages-${projectId} not found`);
-    return;
-  }
+  if (!chatMessages) return;
   const div = document.createElement("div");
   div.classList.add("text-muted");
   div.textContent = msg;
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
-
-// 소켓 이벤트
-socket.on("chat_history", (history) => {
-  console.log("Received chat history:", history);
-  history.forEach(data => {
-    if (data.project_id) {
-      appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
-    } else {
-      console.error("project_id missing in chat_history data:", data);
-    }
-  });
-});
-
-socket.on("message", (data) => {
-  console.log("Received message:", data);
-  if (data.project_id) {
-    appendChatMessage(data.project_id, data.nickname, data.message, data.timestamp);
-  } else {
-    console.error("project_id missing in message data:", data);
-  }
-});
-
-socket.on("notice", (data) => {
-  console.log("Received notice:", data);
-  if (data.project_id) {
-    appendSystemMessage(data.project_id, data.msg || data.message);
-  } else {
-    console.error("project_id missing in notice data:", data);
-  }
-});
-
-socket.on("error", (err) => {
-  console.error("Socket.IO error:", err);
-  alert(`메시지 전송 실패: ${err.msg}`);
-});
